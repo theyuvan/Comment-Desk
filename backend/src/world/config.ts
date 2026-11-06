@@ -33,6 +33,10 @@ const schema = z.object({
     .transform((v) => v.split(/[\s,]+/).filter(Boolean)),
   AGENT_PASS_CONFIRM_TTL_SECONDS: z.coerce.number().int().positive().default(180),
   AGENT_DRAFT_TTL_SECONDS: z.coerce.number().int().positive().default(900),
+
+  // Built-in drafting agent. Needs ANTHROPIC_API_KEY (read by the SDK); without it, members use their own agent.
+  AGENT_MODEL: z.string().default("claude-opus-5-5"),
+  AGENT_INTERVIEW_TTL_SECONDS: z.coerce.number().int().positive().default(1800),
 });
 
 export type Config = z.infer<typeof schema>;

@@ -17,12 +17,14 @@ import {
   toDraftDto,
 } from "./world/drafts";
 import { completeAgentConfirm, startAgentConfirm } from "./world/agent-pass";
+import { interviewTurn } from "./world/agent-interview";
 
 const requestInput = z.discriminatedUnion("purpose", [
   z.object({ purpose: z.literal("join"), handle: z.string(), wallet: z.string().optional() }),
   z.object({ purpose: z.literal("comment"), docketKey: z.string(), topic: z.string(), text: z.string(), sentiment: z.enum(SENTIMENTS).optional() }),
 ]);
 const draftInput = z.object({ docketKey: z.string(), topic: z.string(), text: z.string(), sentiment: z.enum(SENTIMENTS).optional() });
+const interviewInput = z.object({ interviewId: z.string().optional(), docketKey: z.string(), message: z.string() });
 const textInput = z.object({ text: z.string(), sentiment: z.enum(SENTIMENTS).optional() });
 
 /** Optional host capability used by the demo UI to show what was posted. */
@@ -119,6 +121,12 @@ export function buildApp(deps: Deps) {
   app.get("/api/agent/drafts/:key", (req, res) => {
     const ref = resolveAgentToken(deps, req.headers.authorization);
     res.json(toDraftDto(getOwnDraft(deps, ref, req.params.key)));
+  });
+
+  // ---- built-in drafting agent: interviews the member, parks a draft, never posts ----
+  app.post("/api/agent/interview", async (req, res) => {
+    const ref = await requireMember(req);
+    res.json(await interviewTurn(deps, ref, interviewInput.parse(req.body)));
   });
 
   // ---- member review of agent drafts ----

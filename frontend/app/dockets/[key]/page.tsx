@@ -12,6 +12,7 @@ import { Textarea } from "@/components/ui/textarea"
 import { api, request, type ArchiveCheck, type Comment, type Docket, type Member, type Tally } from "@/lib/api"
 import { signAction, textHash } from "@/lib/wallet"
 import { AgentDraftReview } from "@/world/AgentDraftReview"
+import { AgentInterview } from "@/world/AgentInterview"
 import { AgentPassResult } from "@/world/AgentPassResult"
 import { WorldVerifyButton } from "@/world/WorldVerifyButton"
 
@@ -56,6 +57,7 @@ function Composer({ docket, comments, member, onPosted }: { docket: Docket; comm
   const [sentiment, setSentiment] = useState<(typeof SENTIMENTS)[number]>("support")
   const [text, setText] = useState("")
   const [posted, setPosted] = useState("")
+  const [drafted, setDrafted] = useState(0)
 
   const done = new Set(
     comments.filter((comment) => comment.authorEns === member.ensName || comment.authorEns === `agent.${member.ensName}`).map((comment) => comment.topic),
@@ -140,7 +142,10 @@ function Composer({ docket, comments, member, onPosted }: { docket: Docket; comm
           />
         </div>
       ) : (
-        <AgentDraftReview docketKey={docket.key} />
+        <div className="space-y-8">
+          <AgentInterview docketKey={docket.key} onDraft={() => setDrafted((count) => count + 1)} />
+          <AgentDraftReview docketKey={docket.key} refresh={drafted} />
+        </div>
       )}
     </section>
   )

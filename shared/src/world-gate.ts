@@ -89,6 +89,12 @@ export interface DocketInfo {
   ensName?: string;
 }
 
+/** Counted comments per topic so far. Aggregate only: no authors, no text. */
+export interface DocketInsight {
+  counted: number;
+  topics: { topic: string; support: number; oppose: number; neutral: number; human: number; agent: number }[];
+}
+
 /** Implemented by the Arkiv/ENS half. */
 export interface WorldGateHost {
   /**
@@ -103,6 +109,9 @@ export interface WorldGateHost {
    * write the `comment` entity with `submission.authorType` here.
    */
   onCommentVerified(proof: CommentProof, submission: CommentSubmission): Promise<CommentCreated>;
+
+  /** Optional: the docket's live counted tally, which the drafting agent may show as context. */
+  getInsight?(docketKey: string): Promise<DocketInsight | null>;
 
   getDocket(docketKey: string): Promise<DocketInfo | null>;
 }

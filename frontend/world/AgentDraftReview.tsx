@@ -22,7 +22,7 @@ const fmt = (s: number) => (s <= 0 ? "0:00" : `${Math.floor(s / 60)}:${String(s 
  * approves it with a fresh World ID Agent Pass step-up scoped to that exact draft.
  * There is no "post" button that skips World ID.
  */
-export function AgentDraftReview({ docketKey }: { docketKey: string }) {
+export function AgentDraftReview({ docketKey, refresh = 0 }: { docketKey: string; refresh?: number }) {
   const [drafts, setDrafts] = useState<DraftDto[]>([]);
   const [editing, setEditing] = useState<Record<string, string>>({});
   const [error, setError] = useState<string | null>(null);
@@ -44,7 +44,7 @@ export function AgentDraftReview({ docketKey }: { docketKey: string }) {
       clearTimeout(first);
       clearInterval(t);
     };
-  }, [load]);
+  }, [load, refresh]);
 
   async function save(d: DraftDto) {
     setError(null);

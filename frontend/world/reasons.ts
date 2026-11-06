@@ -30,6 +30,10 @@ const REASONS: Record<string, string> = {
   confirm_replayed: "That approval was already used.",
   token_invalid: "World ID's response failed validation.",
   session_mismatch: "The approval came back to a different session than the one that started it.",
+  invalid_sentiment: "Choose support, oppose or neutral.",
+  // Built-in drafting agent
+  agent_unavailable: "The built-in drafting agent isn't switched on here.",
+  interview_expired: "That conversation timed out. Send your message again to start a new one.",
 };
 
 export function explain(reason: string, fallback?: string): string {

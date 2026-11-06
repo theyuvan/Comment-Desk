@@ -27,6 +27,15 @@ export class DeskWorldHost {
     return { commentRef, ensName };
   }
 
+  async getInsight(docketKey: string) {
+    if (!/^0x[0-9a-fA-F]{64}$/.test(docketKey)) return null;
+    const { tally } = await this.desk.tally(docketKey as Hex);
+    return {
+      counted: tally.counted,
+      topics: tally.topics.map(({ topic, support, oppose, neutral, human, agent }) => ({ topic, support, oppose, neutral, human, agent })),
+    };
+  }
+
   async getDocket(docketKey: string) {
     if (!/^0x[0-9a-fA-F]{64}$/.test(docketKey)) return null;
     const docket = await this.store.getDocket(docketKey as Hex);

@@ -23,7 +23,19 @@ npm run smoke:arkiv        # real write and read test of all four entities
 npm run dev                # API on http://localhost:8787
 ```
 
-`WORLD_GATE=dev` in `.env` runs the API without World. Every record it writes has a `dev:` proof reference, and it refuses to start in production.
+`WORLD_GATE=dev` in `.env` runs the API without World. Every record it writes has a `dev:` proof reference, the app labels it as unverified, and it refuses to start in production.
+
+To try the frontend with no keys or funds, run `npm run dev:memory`. It serves the real API on in-memory data, and the app shows a banner saying nothing is on a network.
+
+Then run the frontend:
+
+```bash
+cd ../frontend
+npx pnpm@9 install
+npx pnpm@9 dev     # http://localhost:3000
+```
+
+Set `NEXT_PUBLIC_API_URL` when the API is not on `http://localhost:8787`, and add the frontend's address to `CORS_ORIGIN`.
 
 ## Checks
 
@@ -33,6 +45,7 @@ npm run dev                # API on http://localhost:8787
 | `npm run simulate:ens` | Every ENS call, role and denial against live Sepolia contracts | Nothing |
 | `npm run probe:arkiv` | Query syntax against live Rabdi | Nothing |
 | `npm run smoke:arkiv` | Real Arkiv writes, reads, patch, expiry, public recount | Key and test GLM |
+| `npx tsx --env-file=.env scripts/e2e-live.ts` | The whole journey on real Arkiv, ENS and Swarm, with denied paths. Run it with the server up and `WORLD_GATE=dev` | Everything funded |
 
 ## How the pieces fit
 
@@ -93,8 +106,10 @@ All bodies are JSON. Timestamps and bigints are decimal strings. Errors look lik
 | GET | `/api/dockets/:key/insights` | Aggregates only |
 | POST | `/api/dockets/:key/close` | Creator publishes the ruling after the deadline |
 | POST | `/api/dockets/:key/moderate` | Moderator closes early for cause |
-| GET | `/api/dockets/:key/archive` | The file to upload to Swarm |
-| POST | `/api/dockets/:key/archive` | Record the Swarm reference on Arkiv and ENS |
+| GET | `/api/dockets/:key/archive` | The closed docket's full record |
+| POST | `/api/dockets/:key/archive/publish` | Retry the Swarm upload, which normally runs when a docket closes |
+| GET | `/api/dockets/:key/archive/verify` | Read the file back from Swarm and compare it with Arkiv |
+| POST | `/api/dockets/:key/archive` | Record a reference uploaded some other way |
 | GET | `/api/ens/failures` | Background ENS writes that failed twice |
 
 ## Recount without us

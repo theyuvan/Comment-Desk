@@ -34,8 +34,8 @@ export default function RecountPage() {
       <Eyebrow>Independent recount</Eyebrow>
       <h1 className="mb-4 font-display text-5xl tracking-tight">Check the count yourself</h1>
       <p className="mb-8 max-w-2xl leading-relaxed text-muted-foreground">
-        Your browser just read every comment straight from Arkiv and applied the published counting rule. Our server
-        did not supply these numbers.
+        Your browser reads every comment straight from Arkiv and applies the published counting rule. Our server does
+        not supply these numbers.
       </p>
 
       {health?.mode === "memory" && <Notice>Recounts need real Arkiv data, and this is the local demo.</Notice>}

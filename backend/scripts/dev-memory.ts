@@ -25,12 +25,12 @@ const app = createApi({
   desk,
   store,
   publisher: { address: "0x0000000000000000000000000000000000000000", chainId: 7794095 },
-  corsOrigin: "http://localhost:3000",
+  corsOrigin: process.env.CORS_ORIGIN ?? "http://localhost:3000",
   mode: "memory",
   policyVersion,
   rootName: "commentdesk.eth",
 });
 
-serve({ fetch: app.fetch, port: 8787 }, ({ port }) => {
+serve({ fetch: app.fetch, port: Number(process.env.PORT ?? 8787) }, ({ port }) => {
   console.log(`In-memory demo API on http://localhost:${port}. Nothing is written to any network.`);
 });

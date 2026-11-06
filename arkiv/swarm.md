@@ -45,7 +45,8 @@ Run a full upload, which needs the backend set up as in [backend/README.md](../b
 
 ```bash
 cd backend
-WORLD_GATE=dev npm run dev          # terminal 1
+# set WORLD_GATE=dev in .env first
+npm run dev                         # terminal 1
 npx tsx --env-file=.env scripts/e2e-live.ts   # terminal 2
 ```
 

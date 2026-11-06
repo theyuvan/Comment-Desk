@@ -5,12 +5,18 @@ import Link from "next/link"
 import { api, ensUrl, type Health, type Member } from "@/lib/api"
 import { getWallet } from "@/lib/wallet"
 
+const MEMBER_CHANGED = "commentdesk:member-changed"
+
 export function useMember() {
   const [member, setMember] = useState<Member | null>()
-  const refresh = () => api.member(getWallet().address).then(setMember).catch(() => setMember(null))
   useEffect(() => {
-    refresh()
+    const load = () => api.member(getWallet().address).then(setMember).catch(() => setMember(null))
+    load()
+    window.addEventListener(MEMBER_CHANGED, load)
+    return () => window.removeEventListener(MEMBER_CHANGED, load)
   }, [])
+  // Tells every useMember on the page, so the header updates along with the form.
+  const refresh = () => window.dispatchEvent(new Event(MEMBER_CHANGED))
   return { member, refresh }
 }
 

@@ -93,7 +93,8 @@ export class EnsNaming implements Naming {
     },
   ) {
     this.rootName = options.rootName;
-    const transport = http(options.rpcUrl);
+    // Public RPCs drop requests now and then, so reads retry before anything fails.
+    const transport = http(options.rpcUrl, { retryCount: 5, retryDelay: 800, timeout: 30_000 });
     this.client = createPublicClient({ chain: sepolia, transport });
     this.wallet = createWalletClient({ chain: sepolia, transport });
   }

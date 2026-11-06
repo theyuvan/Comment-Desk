@@ -8,6 +8,8 @@ import type {
   MemberCreated,
   WorldGateHost,
 } from "@commentdesk/shared";
+import { mkdirSync, readFileSync, writeFileSync } from "node:fs";
+import { dirname } from "node:path";
 import { sha256Hex } from "../crypto";
 
 /**
@@ -15,7 +17,8 @@ import { sha256Hex } from "../crypto";
  *
  * Lets the World gates run end to end before Arkiv entities and ENSv2 minting exist.
  * Replace with the real host (write `member` / `comment` entities, mint subnames) by
- * passing it to `buildApp`. Nothing here is persisted or public.
+ * passing it to `buildApp`. Persisted to a local JSON file only so a dev restart doesn't
+ * forget the demo; nothing here is public or recountable.
  */
 export interface StubComment {
   commentRef: string;
@@ -34,11 +37,28 @@ export class StubHost implements WorldGateHost {
   readonly comments: StubComment[] = [];
   private readonly dockets = new Map<string, DocketInfo>();
 
-  constructor(dockets: DocketInfo[]) {
+  constructor(
+    dockets: DocketInfo[],
+    private readonly file: string | null = null,
+  ) {
     for (const d of dockets) this.dockets.set(d.key, d);
+    if (!file) return;
+    try {
+      const saved = JSON.parse(readFileSync(file, "utf8"));
+      for (const [k, v] of saved.members ?? []) this.members.set(k, v);
+      this.comments.push(...(saved.comments ?? []));
+    } catch (err) {
+      if ((err as NodeJS.ErrnoException).code !== "ENOENT") throw err;
+    }
   }
 
-  static withDemoDockets(now = Math.floor(Date.now() / 1000)): StubHost {
+  private save() {
+    if (!this.file) return;
+    mkdirSync(dirname(this.file), { recursive: true });
+    writeFileSync(this.file, JSON.stringify({ members: [...this.members], comments: this.comments }, null, 2));
+  }
+
+  static withDemoDockets(now = Math.floor(Date.now() / 1000), file: string | null = null): StubHost {
     const week = 7 * 24 * 3600;
     return new StubHost([
       {
@@ -59,7 +79,7 @@ export class StubHost implements WorldGateHost {
         deadline: now + week,
         ensName: "community-garden-hours.demo.commentdesk.eth",
       },
-    ]);
+    ], file);
   }
 
   async getDocket(key: string) {
@@ -73,6 +93,7 @@ export class StubHost implements WorldGateHost {
     const memberRef = `member_${sha256Hex(proof.proofRef).slice(0, 16)}`;
     const ensName = `${join.handle}.commentdesk.eth`;
     this.members.set(memberRef, { handle: join.handle, ensName, proofRef: proof.proofRef });
+    this.save();
     return { memberRef, ensName };
   }
 
@@ -93,6 +114,7 @@ export class StubHost implements WorldGateHost {
       memberEnsName: this.members.get(s.memberRef)?.ensName ?? s.memberRef,
       createdAt: Math.floor(Date.now() / 1000),
     });
+    this.save();
     return created;
   }
 }

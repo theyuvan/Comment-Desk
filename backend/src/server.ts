@@ -1,3 +1,4 @@
+import { dirname, join } from "node:path";
 import { buildApp } from "./app";
 import { loadConfig } from "./config";
 import { WorldStore } from "./store";
@@ -12,7 +13,7 @@ const app = buildApp({
   config,
   store: new WorldStore(config.DATA_FILE),
   // TODO(arkiv/ens half): swap for the real host that writes Arkiv entities and mints ENSv2 names.
-  host: StubHost.withDemoDockets(),
+  host: StubHost.withDemoDockets(undefined, join(dirname(config.DATA_FILE), "stub-host.json")),
   portal: createPortalVerifier({ base: config.WORLD_ID_PORTAL_BASE, rpId: config.WORLD_ID_RP_ID }),
   oidc: createWorldIdpClient(config),
   now: nowSec,

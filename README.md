@@ -225,7 +225,7 @@ Rabdi has no permanent entities: the longest lifetime is 7,884,000 blocks, so lo
 - **Identity**: `@worldcoin/idkit` (human path) and the Agent Pass confirm flow (agent path), real Device-level verification through production World App by default; the track's mocked-proof allowance kept as a documented fallback only.
 - **Naming**: ENSv2 on Sepolia. `UserRegistry` proxies for member and docket names, a Permissioned Resolver per docket, resolver records for comments, Enhanced Access Control for the Moderator role, and an agent name under each member who uses one.
 - **Data**: `@arkiv-network/sdk` 1.0.1 on Rabdi (chain 7794095): typed schemas, `createEntity`, `ExpirationTime`, and `.createdBy()` queries scoped to `$creator`, not `$owner`.
-- **Archive**: Swarm (via Bee node/service) for the closed docket's permanent ruling + comment archive, referenced from the `docket` entity.
+- **Archive**: Swarm, through the Bee HTTP API, for the closed docket's permanent ruling + comment archive, referenced from the `docket` entity and from the docket's ENS records, so the pointer outlives the entity.
 - **Frontend**: Next.js webapp — join flow, docket browser, comment composer, recount page.
 - **Backend**: Node/TypeScript — routes the two comment paths, talks to Arkiv, the ENS registrar, and Swarm on docket close.
 
@@ -385,6 +385,20 @@ await client
   .fetch();
 ```
 
+## Deployed addresses
+
+| What | Address |
+| --- | --- |
+| Arkiv publisher wallet (wrote every entity, Rabdi) | `0x4C16bF7e5267530D8185A92B8CA6ec11cCb85310` |
+| ENS operator wallet (Sepolia) | `0x0B3Fc3CFfe64ee1B0511Add4e9a190c8447C281C` |
+| ENS moderator wallet (Sepolia) | `0xf103d9919b3775d066b2F188B7D62C1E1Ff5f6B7` |
+| `commentdesk.eth` UserRegistry (Sepolia) | `0x17B267C1FC1FE02fD4FE818265b0727a2B9728ed` |
+| Platform resolver (Sepolia) | `0x825a0C175b9F18EFf234fB7ff019eecE73687331` |
+
+## How we used AI
+
+We used Claude Code to research the ENSv2 and Arkiv contracts and SDKs, and to write much of the backend, the frontend and these docs, under our direction and with our review. The product idea, its design and the specification are ours.
+
 ## Build phases
 
 0. Scaffold — repo structure, World ID app registration, ENSv2 testnet registrar setup, Arkiv testnet access.
@@ -401,6 +415,10 @@ await client
 ## Honest gaps and future work
 
 - Comment text itself isn't encrypted — anyone who can see an entity can read its content. Field-level privacy needs ZK/FHE, not available on this stack today.
+- ENS ownership is public, so a member's name links openly to their wallet. The hash stops casual scanning of Arkiv, not someone who starts from an ENS name.
+- One publisher wallet signs every Arkiv entity, so `$creator` proves we published a record, not that a given person wrote it. Authorship rests on the World proof reference and the member's signature, which the backend checks before publishing.
+- Members and policy acceptances last about 182 days, Arkiv's maximum, and Lifetime Extension isn't automated yet.
+- The backend runs as a single process, because Arkiv has no unique constraint and uniqueness checks are serialized in memory.
 - Moderation is minimal in this version — a Moderator can close a docket early, but there's no appeals or dispute process.
 - The analyst insight layer aggregates counts and sentiment but doesn't yet do anything smarter (trend detection, cross-docket analysis) — that's a natural next step, not built in this scope.
 - This is explicitly the mini version: one platform instance, a handful of dockets, enough to prove the mechanism end to end — not a production-scale civic infrastructure deployment.

@@ -33,7 +33,7 @@ async function call(method: string, path: string, body?: unknown) {
     headers: { "content-type": "application/json" },
     body: body === undefined ? undefined : stringify(body),
   });
-  return { status: response.status, body: (await response.json()) as Record<string, never> & Record<string, any> };
+  return { status: response.status, body: (await response.json()) as Record<string, any> };
 }
 
 const sign = (account: Account, primaryType: ActionName, message: Record<string, unknown>) =>

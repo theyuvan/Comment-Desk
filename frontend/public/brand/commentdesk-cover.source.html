@@ -1,0 +1,137 @@
+<!doctype html>
+<html>
+<head>
+<meta charset="utf-8" />
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Instrument+Serif:ital@0;1&family=JetBrains+Mono:wght@400;500;600&display=swap" rel="stylesheet">
+<style>
+  * { margin: 0; padding: 0; box-sizing: border-box; }
+  html, body { width: 1280px; height: 720px; overflow: hidden; }
+  body {
+    background: oklch(0.985 0.002 90);
+    background-image: radial-gradient(oklch(0.12 0.01 60 / 18%) 1px, transparent 1px);
+    background-size: 28px 28px;
+    font-family: "JetBrains Mono", monospace;
+    position: relative;
+  }
+  .frame { position: absolute; inset: 28px; border: 1px solid oklch(0.12 0.01 60 / 10%); }
+  .divider {
+    position: absolute;
+    left: 620px;
+    top: 110px;
+    bottom: 110px;
+    width: 1px;
+    background: oklch(0.12 0.01 60 / 12%);
+  }
+
+  /* ---- left: identity ---- */
+  .content {
+    position: absolute;
+    left: 96px;
+    top: 0;
+    bottom: 0;
+    width: 480px;
+    display: flex;
+    flex-direction: column;
+    justify-content: center;
+  }
+  .tile {
+    width: 100px;
+    height: 100px;
+    border-radius: 20px;
+    background: oklch(0.12 0.01 60);
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    margin-bottom: 36px;
+  }
+  .bars { display: flex; align-items: center; gap: 6px; }
+  .bar { width: 9px; border-radius: 5px; background: oklch(0.985 0.002 90); }
+  .eyebrow {
+    display: flex;
+    align-items: center;
+    gap: 14px;
+    font-size: 16px;
+    letter-spacing: 0.1em;
+    color: oklch(0.45 0.02 60);
+    margin-bottom: 20px;
+  }
+  .eyebrow .line { width: 36px; height: 1px; background: oklch(0.12 0.01 60 / 30%); display: block; }
+  h1 {
+    font-family: "Instrument Serif", Georgia, serif;
+    font-size: 92px;
+    line-height: 0.98;
+    font-weight: 400;
+    color: oklch(0.12 0.01 60);
+    letter-spacing: -0.005em;
+    margin-bottom: 24px;
+  }
+  p.tagline { font-size: 19px; line-height: 1.55; color: oklch(0.45 0.02 60); max-width: 420px; }
+
+  /* ---- right: the mechanic, as a real name tree ---- */
+  .tree-wrap { position: absolute; left: 684px; top: 0; bottom: 0; right: 40px; display: flex; flex-direction: column; justify-content: center; }
+  .tree-label {
+    display: flex; align-items: center; gap: 14px;
+    font-size: 16px; letter-spacing: 0.1em; color: oklch(0.45 0.02 60);
+    margin-bottom: 30px;
+  }
+  .tree-label .line { width: 36px; height: 1px; background: oklch(0.12 0.01 60 / 30%); display: block; }
+  .tree { font-size: 18px; line-height: 2.5; color: oklch(0.45 0.02 60); white-space: nowrap; }
+  .tree .branch { color: oklch(0.12 0.01 60 / 35%); }
+  .tree .i1 { padding-left: 0; }
+  .tree .i2 { padding-left: 28px; }
+  .tree .i3 { padding-left: 56px; }
+  .tree .i4 { padding-left: 84px; }
+  .tree .leaf {
+    display: inline-block;
+    background: oklch(0.12 0.01 60);
+    color: oklch(0.985 0.002 90);
+    padding: 5px 12px;
+    border-radius: 6px;
+    font-weight: 500;
+  }
+
+  .footerline {
+    position: absolute;
+    left: 96px; right: 96px; bottom: 48px;
+    display: flex; justify-content: space-between; align-items: baseline;
+    font-size: 15px; color: oklch(0.45 0.02 60); letter-spacing: 0.04em;
+  }
+</style>
+</head>
+<body>
+  <div class="frame"></div>
+  <div class="divider"></div>
+
+  <div class="content">
+    <div class="tile">
+      <div class="bars">
+        <div class="bar" style="height: 20px;"></div>
+        <div class="bar" style="height: 32px;"></div>
+        <div class="bar" style="height: 44px;"></div>
+        <div class="bar" style="height: 32px;"></div>
+        <div class="bar" style="height: 20px;"></div>
+      </div>
+    </div>
+    <div class="eyebrow"><span class="line"></span>VERIFIABLE PUBLIC INPUT</div>
+    <h1>Comment<br />Desk</h1>
+    <p class="tagline">One real human per voice, and a record anyone can recount.</p>
+  </div>
+
+  <div class="tree-wrap">
+    <div class="tree-label"><span class="line"></span>EVERY COMMENT IS A REAL NAME</div>
+    <div class="tree">
+      <div class="i1">commentdesk.eth</div>
+      <div class="i2"><span class="branch">&#x2514;&#x2500;</span> maya.commentdesk.eth</div>
+      <div class="i3"><span class="branch">&#x2514;&#x2500;</span> rule.maya.commentdesk.eth</div>
+      <div class="i4"><span class="branch">&#x2514;&#x2500;</span> <span class="leaf">comment-1.rule.maya.commentdesk.eth</span></div>
+    </div>
+  </div>
+
+  <div class="footerline">
+    <span>WORLD ID &middot; ENSv2 &middot; ARKIV &middot; SWARM</span>
+    <span>ETHGLOBAL MUMBAI 2026</span>
+  </div>
+</body>
+</html>

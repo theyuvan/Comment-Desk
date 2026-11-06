@@ -1,6 +1,6 @@
 # Comment Desk backend
 
-Node and TypeScript API over Arkiv and ENSv2. World ID plugs in through one interface: see [WORLD_INTEGRATION.md](WORLD_INTEGRATION.md).
+Node and TypeScript API over Arkiv and ENSv2. The World gates connect through `DeskWorldHost`: see [left.md](../left.md).
 
 ## Run it
 
@@ -23,7 +23,7 @@ npm run smoke:arkiv        # real write and read test of all four entities
 npm run dev                # API on http://localhost:8787
 ```
 
-`WORLD_GATE=dev` in `.env` runs the API without World. Every record it writes has a `dev:` proof reference, the app labels it as unverified, and it refuses to start in production.
+`WORLD_GATE=dev` in `.env` serves a stand-in for the World backend on the same paths, so the app runs without World. It checks no proofs, every record it writes has a `dev:` proof reference, the app labels those as unverified, and it refuses to start in production.
 
 To try the frontend with no keys or funds, run `npm run dev:memory`. It serves the real API on in-memory data, and the app shows a banner saying nothing is on a network.
 
@@ -105,7 +105,7 @@ All bodies are JSON. Timestamps and bigints are decimal strings. Errors look lik
 | --- | --- | --- |
 | GET | `/api/typed-data` | EIP-712 domain, types and hash rules to sign with |
 | GET | `/api/stats` | Live totals from Arkiv |
-| POST | `/api/members` | Join: `handle`, `issuedAt`, `signature`, `worldProof` |
+| POST | `/api/policies/join` | The first consent, signed before the World check |
 | GET | `/api/members/by-wallet/:wallet` | Member profile, and whether they can open dockets |
 | POST | `/api/policies/docket-creation` | The second, separate consent |
 | GET | `/api/dockets?status=` | Browse dockets |
@@ -113,8 +113,6 @@ All bodies are JSON. Timestamps and bigints are decimal strings. Errors look lik
 | POST | `/api/dockets/body-hash` | Compute `bodyHash` before signing |
 | GET | `/api/dockets/:key` | One docket, with its `phase` |
 | GET | `/api/dockets/:key/comments` | Public comments |
-| POST | `/api/dockets/:key/submission-key` | The value a World proof is bound to |
-| POST | `/api/dockets/:key/comments` | Submit a comment through either gate |
 | GET | `/api/dockets/:key/tally` | Counts, including what was ignored and why |
 | GET | `/api/dockets/:key/insights` | Aggregates only |
 | POST | `/api/dockets/:key/close` | Creator publishes the ruling after the deadline |

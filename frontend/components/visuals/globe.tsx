@@ -60,7 +60,7 @@ export function Globe({ seats = HUMANS.length, className = "" }: { seats?: numbe
         baseColor: [0.58, 0.58, 0.6],
         markerColor: [1, 1, 1],
         glowColor: [0.75, 0.75, 0.76],
-        markerElevation: 0.04,
+        markerElevation: 0,
         markers: HUMANS.slice(0, seats).map((location) => ({ location, size: 0.05 })),
       })
       const tick = () => {

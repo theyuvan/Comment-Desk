@@ -4,7 +4,7 @@ import { useEffect, useState } from "react";
 import Link from "next/link";
 import { Button } from "@/components/ui/button";
 import { ArrowRight } from "lucide-react";
-import { AnimatedSphere } from "./animated-sphere";
+import { Globe } from "@/components/visuals/globe";
 
 const words = ["verify", "recount", "trust"];
 
@@ -25,9 +25,9 @@ export function HeroSection() {
 
   return (
     <section className="relative min-h-screen flex flex-col overflow-hidden">
-      {/* Animated sphere background */}
-      <div className="absolute right-0 top-1/2 -translate-y-1/2 w-[600px] h-[600px] lg:w-[800px] lg:h-[800px] opacity-40 pointer-events-none">
-        <AnimatedSphere />
+      {/* A globe, one dot per verified human: the pitch made visible before you read a word */}
+      <div className="absolute right-0 top-1/2 -translate-y-1/2 w-[420px] h-[420px] lg:w-[620px] lg:h-[620px] opacity-70 pointer-events-none">
+        <Globe />
       </div>
       
       {/* Subtle grid lines */}
@@ -119,13 +119,13 @@ export function HeroSection() {
               isVisible ? "opacity-100 translate-y-0" : "opacity-0 translate-y-4"
             }`}
           >
-            <Button asChild size="lg" className="bg-foreground hover:bg-foreground/90 text-background px-8 h-14 text-base rounded-full group">
+            <Button asChild size="lg" className="group h-14 rounded-md bg-foreground px-8 text-base text-background transition-colors hover:bg-[#5170ad]">
               <Link href="/pitch">
                 See the pitch
                 <ArrowRight className="w-4 h-4 ml-2 transition-transform group-hover:translate-x-1" />
               </Link>
             </Button>
-            <Button asChild size="lg" variant="outline" className="h-14 px-8 text-base rounded-full border-foreground/20 hover:bg-foreground/5">
+            <Button asChild size="lg" variant="outline" className="h-14 rounded-md border-foreground/20 px-8 text-base hover:border-[#5170ad] hover:text-[#5170ad]">
               <Link href="/dockets">Browse dockets</Link>
             </Button>
           </div>

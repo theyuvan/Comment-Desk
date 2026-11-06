@@ -40,13 +40,14 @@ export class DeskWorldHost {
     if (!/^0x[0-9a-fA-F]{64}$/.test(docketKey)) return null;
     const docket = await this.store.getDocket(docketKey as Hex);
     if (!docket) return null;
+    const rules = await this.desk.liveRules(docket);
     return {
       key: docket.key,
       title: docket.title,
       question: docket.question,
       topics: docket.topics,
-      credentialLevel: docket.credentialLevel === "strict" ? ("strict" as const) : ("soft" as const),
-      status: docket.status === "open" ? ("open" as const) : ("closed" as const),
+      credentialLevel: rules.credential === "strict" ? ("strict" as const) : ("soft" as const),
+      status: docket.status === "open" && rules.status === "open" ? ("open" as const) : ("closed" as const),
       deadline: Math.floor(Number(docket.deadline) / 1000),
       ensName: docket.ensName,
     };

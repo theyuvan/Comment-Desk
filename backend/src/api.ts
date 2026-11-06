@@ -163,6 +163,12 @@ export function createApi(deps: {
     return send(docketView(docket));
   });
 
+  app.get("/api/dockets/:key/rules", async (context) => {
+    const docket = await store.getDocket(key(context.req.param("key")));
+    if (!docket) throw new AppError(404, "docket_not_found", "That docket does not exist or has expired.");
+    return send({ ensName: docket.ensName, ...(await desk.liveRules(docket)) });
+  });
+
   app.get("/api/dockets/:key/comments", async (context) => {
     const comments = await store.listComments(key(context.req.param("key")));
     return send(comments.map(commentView));

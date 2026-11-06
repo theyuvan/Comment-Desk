@@ -121,6 +121,7 @@ export const TEXT_KEYS = {
   deadline: "commentdesk.deadline",
   topics: "commentdesk.topics",
   credential: "commentdesk.credential",
+  agents: "commentdesk.agents",
   arkivKey: "commentdesk.arkiv",
   author: "commentdesk.author",
   authorType: "commentdesk.author-type",
@@ -144,6 +145,7 @@ export const CREATOR_DOCKET_KEYS = [
   TEXT_KEYS.deadline,
   TEXT_KEYS.topics,
   TEXT_KEYS.credential,
+  TEXT_KEYS.agents,
 ] as const;
 
 export const OPERATOR_DOCKET_KEYS = [

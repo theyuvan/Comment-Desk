@@ -301,6 +301,12 @@ export class Desk {
     const repeat = await this.store.findCommentByOp(op);
     if (repeat) return { commentRef: repeat.key, ensName: repeat.ensName, counted: repeat.ordinal === 1 };
 
+    // ENS decides before Arkiv records anything: the docket's rules, the
+    // member's name, and for an agent, its own name.
+    await this.assertEnsAllows(docket, input.authorType);
+    const wallet = await this.naming.walletOf(member.ensName);
+    if (input.authorType === "agent") await this.naming.ensureAgentName(member.ensName, wallet);
+
     const memberTopic = `${docket.key}|${member.ownerHash}|${input.topic}`;
     const posted = await this.commentQueue.run(async () => {
       const onChain = await this.store.countMemberComments(docket.key, member.ownerHash, input.topic);
@@ -332,10 +338,8 @@ export class Desk {
       return { commentRef, ensName, authorEns, counted: prior === 0 };
     });
 
-    // Arkiv is the record. ENS names follow without holding the response open.
+    // Arkiv is the record. The comment's own name follows without holding the response open.
     this.inBackground(posted.ensName, async () => {
-      const wallet = await this.naming.walletOf(member.ensName);
-      if (input.authorType === "agent") await this.naming.ensureAgentName(member.ensName, wallet);
       await this.naming.writeComment({
         docketName: docket.ensName,
         commentName: posted.ensName,
@@ -358,9 +362,36 @@ export class Desk {
     }
   }
 
+  /**
+   * A docket's rules live in its ENS records, so the access control on those
+   * records is real power: a moderator's status write stops comments here.
+   * Unknown is refused, because a record nobody can read can't say yes.
+   */
+  private async assertEnsAllows(docket: DocketRecord, authorType?: string) {
+    const rules = await this.naming.docketRules(docket.ensName);
+    if (rules.status !== "open") {
+      throw new AppError(409, "docket_closed", "ENS shows this docket is closed to comments.");
+    }
+    if (authorType === "agent" && rules.agents === "none") {
+      throw new AppError(403, "agents_not_allowed", "This docket's ENS record doesn't allow agents.");
+    }
+  }
+
+  /** What World asks for on a docket comes from ENS. Arkiv covers a record that isn't set. */
+  async liveRules(docket: DocketRecord) {
+    const rules = await this.naming.docketRules(docket.ensName);
+    return {
+      status: rules.status ?? "unknown",
+      credential: rules.credential ?? docket.credentialLevel,
+      agents: rules.agents ?? "allowed",
+    };
+  }
+
   /** Lets World refuse a dead docket before a member spends a proof on it. */
   async assertCanComment(docketKey: string, topic: string) {
-    this.assertAcceptingComments(await this.docketOr404(docketKey as Hex), topic);
+    const docket = await this.docketOr404(docketKey as Hex);
+    this.assertAcceptingComments(docket, topic);
+    await this.assertEnsAllows(docket);
   }
 
   /** The creator concludes the case after its deadline with a published ruling. */

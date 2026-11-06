@@ -154,6 +154,75 @@ describe("commenting", () => {
     expect(naming.calls).toContain("agent:ravi.commentdesk.eth");
   });
 
+  describe("ENS decides", () => {
+    const post = (desk: Awaited<ReturnType<typeof ready>>["desk"], memberRef: string, docketKey: string, authorType: "human" | "agent" = "human") =>
+      desk.postVerifiedComment({ proofRef: `p-${authorType}` }, { memberRef, docketKey, topic: "cost", text: "Words.", authorType });
+
+    it("stops a comment when only the ENS status changed", async () => {
+      const { store, naming, desk, docket } = await ready();
+      const member = store.members.find((item) => item.ensName.startsWith("ravi"))!;
+      await naming.setDocketStatus(store.dockets[0]!.ensName, "closed-for-cause", "moderator");
+      expect(store.dockets[0]?.status).toBe("open");
+      await expect(post(desk, member.key, docket)).rejects.toEqual(code("docket_closed"));
+      expect(store.comments).toHaveLength(0);
+    });
+
+    it("refuses a docket whose ENS status can't be found", async () => {
+      const { store, naming, desk, docket } = await ready();
+      const member = store.members.find((item) => item.ensName.startsWith("ravi"))!;
+      naming.rules.delete(store.dockets[0]!.ensName);
+      await expect(post(desk, member.key, docket)).rejects.toEqual(code("docket_closed"));
+    });
+
+    it("posts nothing while ENS can't be read", async () => {
+      const { store, naming, desk, docket } = await ready();
+      const member = store.members.find((item) => item.ensName.startsWith("ravi"))!;
+      naming.docketRules = async () => {
+        throw new AppError(503, "ens_unavailable", "ENS can't be read right now, so nothing was posted.");
+      };
+      await expect(post(desk, member.key, docket)).rejects.toEqual(code("ens_unavailable"));
+      expect(store.comments).toHaveLength(0);
+    });
+
+    it("refuses an agent when the docket's record says none, and still takes the human", async () => {
+      const { store, naming, desk, docket } = await ready();
+      const member = store.members.find((item) => item.ensName.startsWith("ravi"))!;
+      const name = store.dockets[0]!.ensName;
+      naming.rules.set(name, { ...naming.rules.get(name)!, agents: "none" });
+      await expect(post(desk, member.key, docket, "agent")).rejects.toEqual(code("agents_not_allowed"));
+      expect(store.comments).toHaveLength(0);
+      await post(desk, member.key, docket, "human");
+      expect(store.comments).toHaveLength(1);
+    });
+
+    it("refuses a member whose name stopped resolving", async () => {
+      const { store, naming, desk, docket } = await ready();
+      const member = store.members.find((item) => item.ensName.startsWith("ravi"))!;
+      naming.walletOf = async () => {
+        throw new AppError(403, "ens_unresolved", "That name no longer resolves.");
+      };
+      await expect(post(desk, member.key, docket)).rejects.toEqual(code("ens_unresolved"));
+      expect(store.comments).toHaveLength(0);
+    });
+
+    it("registers an agent's name before its comment reaches Arkiv", async () => {
+      const { store, naming, desk, docket } = await ready();
+      const member = store.members.find((item) => item.ensName.startsWith("ravi"))!;
+      naming.ensureAgentName = async () => {
+        throw new AppError(502, "ens_rejected", "ENS rejected register. Nothing was sent.");
+      };
+      await expect(post(desk, member.key, docket, "agent")).rejects.toEqual(code("ens_rejected"));
+      expect(store.comments).toHaveLength(0);
+    });
+
+    it("takes the World credential from ENS, not the copy on Arkiv", async () => {
+      const { store, naming, desk } = await ready();
+      const docketRecord = store.dockets[0]!;
+      naming.rules.set(docketRecord.ensName, { status: "open", credential: "strict", agents: "allowed" });
+      await expect(desk.liveRules(docketRecord)).resolves.toMatchObject({ credential: "strict" });
+    });
+  });
+
   it("defaults sentiment to neutral, for an agent draft that has none", async () => {
     const { store, desk, docket, voter } = await ready();
     const member = store.members.find((item) => item.ensName.startsWith("ravi"))!;

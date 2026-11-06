@@ -4,6 +4,7 @@ import { useState, useEffect } from "react";
 import Link from "next/link";
 import { Button } from "@/components/ui/button";
 import { Menu, X } from "lucide-react";
+import { ThemeToggle } from "@/components/theme-toggle";
 
 const navLinks = [
   { name: "What it does", href: "#features" },
@@ -63,7 +64,8 @@ export function Navigation() {
           </div>
 
           {/* Desktop CTA */}
-          <div className="hidden md:flex items-center gap-4">
+          <div className="hidden md:flex items-center gap-3">
+            <ThemeToggle />
             <Button asChild size="sm" className={`bg-foreground hover:bg-foreground/90 text-background rounded-full transition-all duration-500 ${isScrolled ? "px-4 h-8 text-xs" : "px-6"}`}>
               <Link href="/dockets">Open the app</Link>
             </Button>
@@ -125,6 +127,7 @@ export function Navigation() {
             <Button asChild className="flex-1 bg-foreground text-background rounded-full h-14 text-base" onClick={() => setIsMobileMenuOpen(false)}>
               <Link href="/dockets">Open the app</Link>
             </Button>
+            <ThemeToggle className="h-14 w-14" />
           </div>
         </div>
       </div>

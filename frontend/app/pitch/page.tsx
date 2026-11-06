@@ -24,6 +24,7 @@ import { EnsGate, NameTree, RoleSwitch } from "@/components/pitch/ens"
 import { BreakIt, CheckLadder, ProofBinding } from "@/components/pitch/world"
 import { Big, Flood } from "@/components/pitch/shared"
 import { Globe } from "@/components/pitch/globe"
+import { ThemeToggle } from "@/components/theme-toggle"
 
 type SponsorId = "arkiv" | "ens" | "world"
 type Slide = { label: string; body: ReactNode }
@@ -132,6 +133,7 @@ export default function PitchPage() {
             <Link href="/dockets" className="transition-colors hover:text-foreground">
               Open the app
             </Link>
+            <ThemeToggle className="h-7 w-7 border-0 hover:bg-foreground/5" />
           </nav>
         </div>
       </header>

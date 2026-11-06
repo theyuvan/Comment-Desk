@@ -4,6 +4,7 @@ import { useEffect, useState, type ReactNode } from "react"
 import Link from "next/link"
 import { api, ensUrl, request, type Health, type Member } from "@/lib/api"
 import { currentWallet, signAction } from "@/lib/wallet"
+import { ThemeToggle } from "@/components/theme-toggle"
 
 const MEMBER_CHANGED = "commentdesk:member-changed"
 
@@ -202,6 +203,7 @@ export function Shell({ children }: { children: ReactNode }) {
                 Join
               </Link>
             )}
+            <ThemeToggle className="h-7 w-7 border-0 hover:bg-foreground/5" />
           </nav>
         </div>
       </header>

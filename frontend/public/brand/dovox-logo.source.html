@@ -1,0 +1,68 @@
+<!doctype html>
+<html>
+<head>
+<meta charset="utf-8" />
+<style>
+  * { margin: 0; padding: 0; box-sizing: border-box; }
+  html, body { width: 512px; height: 512px; overflow: hidden; }
+  body {
+    background: oklch(0.12 0.01 60);
+    display: flex;
+    align-items: center;
+    justify-content: center;
+  }
+  .tile {
+    width: 512px;
+    height: 512px;
+    border-radius: 56px;
+    background: oklch(0.12 0.01 60);
+    position: relative;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    /* faint dot texture, same recipe as the product's own dot-grid, at low opacity on this dark tile */
+    background-image: radial-gradient(oklch(0.985 0.002 90 / 7%) 1.6px, transparent 1.6px);
+    background-size: 32px 32px;
+  }
+  .mark { position: relative; width: 300px; height: 300px; }
+  .bars {
+    position: absolute;
+    left: 50%;
+    top: 50%;
+    transform: translate(-50%, -50%);
+    display: flex;
+    align-items: center;
+    gap: 22px;
+  }
+  .bar {
+    width: 38px;
+    border-radius: 19px;
+    background: oklch(0.985 0.002 90);
+  }
+  .dot {
+    position: absolute;
+    left: 50%;
+    top: 50%;
+    width: 26px;
+    height: 26px;
+    border-radius: 50%;
+    background: oklch(0.985 0.002 90);
+    transform: translate(-50%, calc(-50% - 148px));
+  }
+</style>
+</head>
+<body>
+  <div class="tile">
+    <div class="mark">
+      <div class="bars">
+        <div class="bar" style="height: 112px;"></div>
+        <div class="bar" style="height: 176px;"></div>
+        <div class="bar" style="height: 240px;"></div>
+        <div class="bar" style="height: 176px;"></div>
+        <div class="bar" style="height: 112px;"></div>
+      </div>
+      <div class="dot"></div>
+    </div>
+  </div>
+</body>
+</html>

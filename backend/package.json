@@ -12,7 +12,8 @@
     "setup:wallets": "tsx scripts/generate-wallets.ts",
     "setup:ens": "tsx --env-file=.env scripts/setup-ens.ts",
     "smoke:arkiv": "tsx --env-file=.env scripts/smoke-arkiv.ts",
-    "recount": "tsx scripts/recount.ts"
+    "recount": "tsx scripts/recount.ts",
+    "probe:arkiv": "tsx scripts/probe-arkiv.ts"
   },
   "keywords": [],
   "author": "",

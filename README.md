@@ -113,18 +113,19 @@ Comment records carry a real expiry. The record of who-said-what lives on Arkiv,
 ```
 maya.commentdesk.eth                              ← Maya's identity, minted on join
 truck-emissions-rule.maya.commentdesk.eth          ← a docket Maya opened
+agent.maya.commentdesk.eth                          ← Maya's agent, a separate name
 comment-1.truck-emissions-rule.maya.commentdesk.eth ← one comment under it
 ```
 
 Clicking through that chain in the demo is the whole pitch made visible: a person, their docket, their comment — each a real name you can resolve, not a row in someone's table.
 
-**Why ENSv2, specifically, not legacy ENS**: this model mints a subname for every single comment — potentially thousands per docket. Legacy ENS subname issuance is expensive and slow at that volume. ENSv2's architecture is built for cheap, scalable subname minting off the expensive root-registration path. That's the actual technical reason to need it, not just "it's the newer one."
+**Why ENSv2, specifically, not legacy ENS**: every comment gets its own resolvable name — potentially thousands per docket. In ENSv2 a comment name is a set of records on its docket's Permissioned Resolver, served by wildcard resolution, so it needs no token and no registration per comment. Members and dockets are real tokens in per-name registries. That's the actual technical reason to need it, not just "it's the newer one."
 
 **Track requirement**: ENSv2 is live on Ethereum mainnet; the track accepts mainnet or Sepolia, and ENSv2 features must be central, not cosmetic. This build targets **Sepolia** for the demo (real ENSv2 contracts, not a mock), with mainnet left as a documented future step.
 
 Two ENSv2-specific features earn their place beyond plain subname minting, not for bonus-chasing but because the platform actually needs them:
 - **Enhanced Access Control (role-based permissions)**: a Moderator is granted the right to edit *only* a docket's `status` field (open → closed-for-cause) on names they don't own — exactly the role-based, field-scoped delegation Enhanced Access Control exists for, instead of the alternative of giving Moderators full ownership of every docket name.
-- **Permissioned Resolver per subname**: each docket's subname gets its own resolver instance, so a Creator fully owns their docket's records (title, topics, deadline) without the platform or any other Creator able to touch them.
+- **Permissioned Resolver per docket**: each docket gets its own resolver instance, so a Creator fully owns their docket's records (title, topics, deadline). The operator keeps only key-scoped rights for comment records, and gives up its text admin role in the same transaction, so it cannot reach the Creator's records later.
 - **Agents as namespaces (bonus direction)**: when an agent drafts for a member, the agent itself can hold a child namespace under the member's name (e.g. `agent.maya.commentdesk.eth`), separate from the member's own identity — so a comment's provenance chain shows human vs. agent authorship as two distinct, resolvable names, not just a flag in a database row.
 
 **Do we need a wallet?** Yes — but only as the cryptographic key behind ENS ownership and the hashed Arkiv owner field. Not for payment. Every member effectively has a lightweight wallet tied to their World ID session; they never see it as a "crypto wallet to manage," and the platform never asks them to hold funds. Keeping this boundary explicit matters because it's the difference between "a verifiable comment platform" and "yet another token-gated app" — the second one isn't the pitch.
@@ -150,12 +151,14 @@ Per-docket credential level (set by the Creator when opening it) adds a second a
 
 | Entity | Owner | Key fields | Expiry |
 | --- | --- | --- | --- |
-| `member` | Hash of wallet | ENS name, World ID nullifier reference, join-policy signature ref | Never |
-| `policy_acceptance` | Hash of wallet | which policy (join / docket-creation), timestamp | Never |
+| `member` | Hash of wallet | ENS name, World ID nullifier reference, join-policy entity ref | Maximum lifetime (about 182 days), renewable |
+| `policy_acceptance` | Hash of wallet | which policy (join / docket-creation), signature hash, timestamp | Maximum lifetime (about 182 days), renewable |
 | `docket` | Hash of creator's wallet | title, topics, deadline, credential level | Deadline + grace period |
 | `comment` | Hash of commenter's wallet | docket ref, topic, stance text, author type (human/agent), proof ref | Docket's expiry |
 
-Owner keys are hashed, not raw — same principle as the rest of this session's work: a passive observer scanning Arkiv can't casually deanonymize a commenter without already knowing their wallet.
+On Arkiv, `$owner` and `$creator` are always the real signing wallet, so the platform's publisher wallet signs every entity and each person is identified by an `owner_hash` column. Raw signatures are never stored either, because a signature would reveal the wallet behind the hash. A passive observer scanning Arkiv can't casually deanonymize a commenter without already knowing their wallet.
+
+Rabdi has no permanent entities: the longest lifetime is 7,884,000 blocks, so long-lived records need a Lifetime Extension before they expire.
 
 ## Modules
 
@@ -220,8 +223,8 @@ Owner keys are hashed, not raw — same principle as the rest of this session's 
 ## Tech stack
 
 - **Identity**: `@worldcoin/idkit` (human path) and the Agent Pass confirm flow (agent path), real Device-level verification through production World App by default; the track's mocked-proof allowance kept as a documented fallback only.
-- **Naming**: ENSv2 subname registrar on Sepolia, one contract call per mint (member, docket, comment, optionally agent-as-namespace), with Enhanced Access Control for the Moderator role and a Permissioned Resolver per docket.
-- **Data**: `@arkiv-network/sdk` — same real API as the rest of this session's work (`createEntity`, `ExpirationTime`, `.createdBy()` queries using `$creator`, not `$owner`).
+- **Naming**: ENSv2 on Sepolia. `UserRegistry` proxies for member and docket names, a Permissioned Resolver per docket, resolver records for comments, Enhanced Access Control for the Moderator role, and an agent name under each member who uses one.
+- **Data**: `@arkiv-network/sdk` 1.0.1 on Rabdi (chain 7794095): typed schemas, `createEntity`, `ExpirationTime`, and `.createdBy()` queries scoped to `$creator`, not `$owner`.
 - **Archive**: Swarm (via Bee node/service) for the closed docket's permanent ruling + comment archive, referenced from the `docket` entity.
 - **Frontend**: Next.js webapp — join flow, docket browser, comment composer, recount page.
 - **Backend**: Node/TypeScript — routes the two comment paths, talks to Arkiv, the ENS registrar, and Swarm on docket close.
@@ -265,47 +268,49 @@ const verifyRes = (await verifyCloudProof(
 
 **Critical setup trap**: the app's environment (staging vs. production), the action's environment, and which client scans the QR code (Simulator vs. real World App) must all match. A production action scanned by the Simulator — or a staging action scanned by the real World App — silently returns zero proofs and looks exactly like a frontend bug. Register one production action for the real demo; keep a separate staging action only if you need repeatable automated testing.
 
-### ENSv2 — real subname minting
+### ENSv2 — real contracts on Sepolia
 
-```bash
-npm i viem
-```
+See [backend/src/ens/naming.ts](backend/src/ens/naming.ts). Each level of a name has its own registry, deployed through ENS's Verifiable Factory:
 
 ```typescript
-import { createWalletClient, http } from "viem";
-import { namehash } from "viem/ens";
-// ENSv2's subname registrar contract call — mint under the platform's root name
-const tx = await walletClient.writeContract({
-  address: ENSV2_REGISTRAR_ADDRESS,
-  abi: ensV2RegistrarAbi,
-  functionName: "register",
-  args: [labelFor(member.ensHandle), parentNode, member.wallet, expiry],
+// A member name is a token in the commentdesk.eth UserRegistry
+await send(rootRegistry, userRegistryAbi, "register", [
+  "maya", memberWallet, zeroAddress, platformResolver, MEMBER_TOKEN_ROLES, expiry,
+]);
+
+// A comment name is records on its docket's Permissioned Resolver
+await send(docketResolver, resolverAbi, "multicall", [[
+  setText(commentName, "commentdesk.arkiv", commentKey),
+  setText(commentName, "commentdesk.author", authorEns),
+]]);
+```
+
+`npm run simulate:ens` in `backend/` replays the whole flow against live Sepolia contracts for free, including the denied paths.
+
+### Arkiv — typed schemas on Rabdi
+
+See [backend/src/arkiv/](backend/src/arkiv/). Only filter columns are indexed, and comment text lives in a `bytes()` column:
+
+```typescript
+import { bytes, defineSchema, str, u64 } from "@arkiv-network/sdk/schema";
+
+export const CommentSchema = defineSchema("commentdesk_comment_v1", {
+  docket_key: str().indexed(),
+  topic: str().indexed(),
+  owner_hash: str().indexed(),
+  author_type: str().indexed(),
+  submitted_at: u64().indexed(),
+  stance: bytes(),
+  // ...
+});
+
+await wallet.createEntity(CommentSchema, values, {
+  expiration: ExpirationTime.atBlock(docketExpiresAt),
+  flags: { readonly: true },
 });
 ```
 
-Each of the three mint points — member join, docket creation, comment submission — calls this same registrar function with a different parent node (platform root, the creator's name, the docket's name respectively).
-
-### Arkiv — same real SDK as the rest of this session
-
-```typescript
-import { createWalletClient, createPublicClient, http } from "@arkiv-network/sdk";
-import { privateKeyToAccount } from "@arkiv-network/sdk/accounts";
-import { kaolin } from "@arkiv-network/sdk/chains";   // confirm this matches the hackathon's actual chain ID first
-import { ExpirationTime, jsonToPayload } from "@arkiv-network/sdk/utils";
-
-const { entityKey } = await walletClient.createEntity({
-  attributes: [
-    { key: "type", value: "comment" },
-    { key: "creator", value: hashedWallet },
-    { key: "docket", value: docketKey },
-    { key: "topic", value: topic },
-  ],
-  payload: jsonToPayload({ stance, authorType, proofRef }),
-  expiresIn: ExpirationTime.fromDays(docketDeadlineDays),
-});
-```
-
-Query by `.createdBy(hashedWallet)` / `$creator`, not `$owner` — same reasoning as the rest of this session: `$owner` can change hands, `$creator` can't, and the trust claim depends on that.
+Comments are readonly, so they can never be edited, and they expire at their docket's exact block. Queries use `.createdBy(publisher)`: `$owner` can change hands, `$creator` can't, and the trust claim depends on that.
 
 ### Swarm — the closed-docket archive, real upload via a Bee node
 
@@ -337,15 +342,16 @@ Reading it back is a plain fetch against the Bee node's `/bzz/` endpoint using t
 ### Enhanced Access Control — scoping the Moderator role
 
 ```typescript
-// grant the Moderator role edit rights on exactly the `status` field of a
-// docket's Permissioned Resolver, without transferring ownership of the name
-await walletClient.writeContract({
-  address: PERMISSIONED_RESOLVER_ADDRESS,
-  abi: permissionedResolverAbi,
-  functionName: "grantRole",
-  args: [docketNode, MODERATOR_STATUS_ROLE, moderatorWallet],
+// Only the selector and key matter: this grants setText on "status" and nothing else
+const setter = encodeFunctionData({
+  abi: resolverAbi,
+  functionName: "setText",
+  args: ["0x", "status", ""],
 });
+await send(docketResolver, resolverAbi, "grantSetterRoles", [setter, moderator]);
 ```
+
+The role covers one text key on one docket's resolver, without transferring ownership of the name. The simulation proves a moderator can change `status` and is refused on any other record.
 
 ## Required judging deliverables (Arkiv track, verbatim requirements)
 
@@ -362,12 +368,21 @@ The Arkiv track is judged entirely off these files plus a reproducible query —
 
 The README itself must also state, per the track's qualification requirements: the wallet address(es) that wrote the project's entities (filled in once deployed — e.g. `0x...` for the demo's platform-operated member/docket-creation wallet), and one query a judge can run directly, e.g.:
 
+```bash
+cd backend && npm install
+npm run recount -- <docketKey> <publisherAddress>
+```
+
 ```typescript
 // one query a judge can run: every comment on a given docket, newest first
-await publicClient.queryEntities({
-  where: eq("type", "comment"), and: eq("docket", DOCKET_ENTITY_KEY),
-  orderBy: "createdAt", direction: "desc",
-});
+await client
+  .select({ $key: true, topic: true, sentiment: true, stance: true })
+  .from(CommentSchema)
+  .createdBy(PUBLISHER_ADDRESS)
+  .where(eq("docket_key", DOCKET_ENTITY_KEY))
+  .orderBy(desc("submitted_at"))
+  .limit(50)
+  .fetch();
 ```
 
 ## Build phases

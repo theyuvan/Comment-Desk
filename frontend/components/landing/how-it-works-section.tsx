@@ -28,7 +28,7 @@ const steps = [
     number: "III",
     title: "Recount it yourself",
     description: "Read every comment straight from Arkiv and reproduce the tally, independent of this platform.",
-    code: `npm run recount <docket> <publisher>
+    code: `npm run recount -- <docket> <publisher>
 
 // Reads Arkiv directly
 // No Comment Desk server involved`,

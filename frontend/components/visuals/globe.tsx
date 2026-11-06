@@ -62,6 +62,13 @@ export function Globe({ seats = HUMANS.length, className = "" }: { seats?: numbe
         glowColor: [0.75, 0.75, 0.76],
         markerElevation: 0,
         markers: HUMANS.slice(0, seats).map((location) => ({ location, size: 0.05 })),
+        // A grey chain linking each human to the next: one record, not one dot each on its own.
+        arcColor: [0.4, 0.4, 0.42],
+        arcWidth: 1.4,
+        arcs: HUMANS.slice(0, seats).reduce<{ from: [number, number]; to: [number, number] }[]>(
+          (arcs, location, index, all) => (index === 0 ? arcs : [...arcs, { from: all[index - 1]!, to: location }]),
+          [],
+        ),
       })
       const tick = () => {
         if (dragFrom.current === null && !still) phi += 0.003

@@ -47,6 +47,7 @@ export interface Naming {
     authorType: string;
     topic: string;
     arkivKey: Hex;
+    wallet: Address;
   }): Promise<void>;
   ensureAgentName(memberName: string, wallet: Address): Promise<string>;
   setDocketStatus(docketName: string, status: string, by: "operator" | "moderator"): Promise<void>;
@@ -70,9 +71,9 @@ const textSetter = (key: string) =>
  *   commentdesk.eth          UserRegistry, shared platform resolver
  *   maya.commentdesk.eth     non-transferable token, the member's own resolver and registry
  *   rule.maya.commentdesk... token owned by the member, its own PermissionedResolver
- *   comment-1.rule.maya...   records on that resolver, served by wildcard, no token
+ *   comment-1.rule.maya...   non-transferable token owned by its author, records on the docket's resolver
  *
- * Member registries are emancipated from birth: the operator can only register
+ * Member and docket registries are emancipated from birth: the operator can only register
  * and renew, so it can never change or delete a name once it exists.
  */
 export class EnsNaming implements Naming {
@@ -183,24 +184,30 @@ export class EnsNaming implements Naming {
         ]);
       }
 
-      const registry = await this.registryOf(name);
-      if (!(await this.isDeployed(registry))) {
-        const init = encodeFunctionData({
-          abi: userRegistryAbi as Abi,
-          functionName: "initialize",
-          args: [[{ account: this.operator.address, roleBitmap: OPERATOR_SUBNAME_ROLES }]],
-        });
-        await this.send(SEPOLIA.verifiableFactory, factoryAbi, "deployProxy", [
-          SEPOLIA.userRegistryImpl, registrySalt(name), init,
-        ]);
-      }
-      await this.send(registry, userRegistryAbi, "setParent", [root, label]);
+      const registry = await this.deployRegistry(name, root);
 
       await this.send(root, userRegistryAbi, "register", [
         label, wallet, registry, resolver, MEMBER_TOKEN_ROLES, this.expiry(),
       ]);
       return name;
     });
+  }
+
+  /** An emancipated registry for `name`, linked back to its parent. */
+  private async deployRegistry(name: string, parent: Address): Promise<Address> {
+    const registry = await this.registryOf(name);
+    if (!(await this.isDeployed(registry))) {
+      const init = encodeFunctionData({
+        abi: userRegistryAbi as Abi,
+        functionName: "initialize",
+        args: [[{ account: this.operator.address, roleBitmap: OPERATOR_SUBNAME_ROLES }]],
+      });
+      await this.send(SEPOLIA.verifiableFactory, factoryAbi, "deployProxy", [
+        SEPOLIA.userRegistryImpl, registrySalt(name), init,
+      ]);
+    }
+    await this.send(registry, userRegistryAbi, "setParent", [parent, labelOf(name)]);
+    return registry;
   }
 
   openDocket(input: { memberName: string; label: string; wallet: Address; records: DocketRecords }): Promise<string> {
@@ -211,6 +218,9 @@ export class EnsNaming implements Naming {
       if ((await this.ownerOf(registry, label)) !== zeroAddress) {
         throw new AppError(409, "docket_taken", `${name} already exists.`);
       }
+
+      // Comments are real names under the docket, so the ENS app and any wallet can see them.
+      const commentRegistry = await this.deployRegistry(name, registry);
 
       // Enhanced Access Control, set once in the deployment. During `initialize`
       // the caller is the factory, so it holds text admin for this one transaction
@@ -246,12 +256,14 @@ export class EnsNaming implements Naming {
           ],
         ],
       });
-      await this.send(SEPOLIA.verifiableFactory, factoryAbi, "deployProxy", [
-        SEPOLIA.permissionedResolverImpl, salt, init,
-      ]);
+      if (!(await this.isDeployed(resolver))) {
+        await this.send(SEPOLIA.verifiableFactory, factoryAbi, "deployProxy", [
+          SEPOLIA.permissionedResolverImpl, salt, init,
+        ]);
+      }
 
       await this.send(registry, userRegistryAbi, "register", [
-        label, wallet, zeroAddress, resolver, MEMBER_TOKEN_ROLES, this.expiry(),
+        label, wallet, commentRegistry, resolver, MEMBER_TOKEN_ROLES, this.expiry(),
       ]);
       return name;
     });
@@ -286,9 +298,18 @@ export class EnsNaming implements Naming {
     authorType: string;
     topic: string;
     arkivKey: Hex;
+    wallet: Address;
   }): Promise<void> {
     return this.queue.run(async () => {
       const resolver = await this.docketResolver(input.docketName);
+      const registry = await this.registryOf(input.docketName);
+      const label = labelOf(input.commentName);
+      // Owned by its author, with no roles: it cannot be transferred, changed or deleted.
+      if ((await this.ownerOf(registry, label)) === zeroAddress) {
+        await this.send(registry, userRegistryAbi, "register", [
+          label, input.wallet, zeroAddress, resolver, 0n, this.expiry(),
+        ]);
+      }
       await this.send(resolver, resolverAbi, "multicall", [
         [
           setText(input.commentName, TEXT_KEYS.arkivKey, input.arkivKey),

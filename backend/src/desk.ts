@@ -374,6 +374,7 @@ export class Desk {
         authorType: input.authorType,
         topic: input.topic,
         arkivKey: posted.key,
+        wallet,
       });
     });
     return { key: posted.key, ensName: posted.ensName, counted: posted.counted, repeated: false };

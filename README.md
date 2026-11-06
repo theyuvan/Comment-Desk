@@ -119,7 +119,7 @@ comment-1.truck-emissions-rule.maya.commentdesk.eth ← one comment under it
 
 Clicking through that chain in the demo is the whole pitch made visible: a person, their docket, their comment — each a real name you can resolve, not a row in someone's table.
 
-**Why ENSv2, specifically, not legacy ENS**: every comment gets its own resolvable name — potentially thousands per docket. In ENSv2 a comment name is a set of records on its docket's Permissioned Resolver, served by wildcard resolution, so it needs no token and no registration per comment. Members and dockets are real tokens in per-name registries. That's the actual technical reason to need it, not just "it's the newer one."
+**Why ENSv2, specifically, not legacy ENS**: every comment gets its own resolvable name — potentially thousands per docket. In ENSv2 each name level has its own registry, so members, dockets and comments are real names, and each comment is owned by the person who wrote it. A comment's records live on its docket's Permissioned Resolver. That's the actual technical reason to need it, not just "it's the newer one."
 
 **Track requirement**: ENSv2 is live on Ethereum mainnet; the track accepts mainnet or Sepolia, and ENSv2 features must be central, not cosmetic. This build targets **Sepolia** for the demo (real ENSv2 contracts, not a mock), with mainnet left as a documented future step.
 
@@ -279,7 +279,10 @@ await send(rootRegistry, userRegistryAbi, "register", [
   "maya", memberWallet, zeroAddress, platformResolver, MEMBER_TOKEN_ROLES, expiry,
 ]);
 
-// A comment name is records on its docket's Permissioned Resolver
+// A comment is a real name owned by its author, with its records on the docket's resolver
+await send(docketRegistry, userRegistryAbi, "register", [
+  label, authorWallet, zeroAddress, docketResolver, 0n, expiry,
+]);
 await send(docketResolver, resolverAbi, "multicall", [[
   setText(commentName, "commentdesk.arkiv", commentKey),
   setText(commentName, "commentdesk.author", authorEns),

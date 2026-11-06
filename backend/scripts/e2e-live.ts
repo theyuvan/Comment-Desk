@@ -110,7 +110,7 @@ const accepted = await call("POST", "/api/policies/docket-creation", {
 });
 check("creator policy signed", accepted.status === 201, accepted.body.key);
 await new Promise((resolve) => setTimeout(resolve, 4000));
-const deadline = BigInt(Date.now() + 240_000);
+const deadline = BigInt(Date.now() + 420_000);
 const opened = await openDocket(creator, "truck-rule", deadline);
 check("docket opens", opened.status === 201, stringify(opened.body));
 const docket = opened.body.key as Hex;
@@ -133,6 +133,16 @@ step("ENS names for comments");
 const commentName = human.body.ensName as string;
 await until("comment resolves to its Arkiv entity", () => text(commentName, TEXT_KEYS.arkivKey), (value) => value === human.body.key, 240);
 check("comment names its author", (await text(commentName, TEXT_KEYS.author)) === `${voterHandle}.commentdesk.eth`);
+const commentRegistry = (await client.readContract({
+  address: SEPOLIA.verifiableFactory,
+  abi: parseAbi(["function predictProxyAddress(address deployer, uint256 salt) view returns (address)"]),
+  functionName: "predictProxyAddress",
+  args: [privateKeyToAccount(process.env.ENS_OPERATOR_PRIVATE_KEY as Hex).address, registrySalt(docketName)],
+})) as Address;
+const commentOwner = (await client.readContract({
+  address: commentRegistry, abi: userRegistryAbi as Abi, functionName: "findOwner", args: [commentName.split(".")[0]],
+})) as Address;
+check("the comment is a real name owned by its author", commentOwner.toLowerCase() === voter.address.toLowerCase());
 await until("agent has its own name", () => addressOf(`agent.${voterHandle}.commentdesk.eth`), (value) => value?.toLowerCase() === voter.address.toLowerCase(), 240);
 await until("agent comment names the agent", () => text(agent.body.ensName, TEXT_KEYS.author), (value) => value === `agent.${voterHandle}.commentdesk.eth`, 240);
 

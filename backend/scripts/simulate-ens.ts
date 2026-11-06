@@ -53,6 +53,7 @@ const operator: Address = "0x1000000000000000000000000000000000000001";
 const creator: Address = "0x2000000000000000000000000000000000000002";
 const moderator: Address = "0x3000000000000000000000000000000000000003";
 const stranger: Address = "0x4000000000000000000000000000000000000004";
+const commenter: Address = "0x5000000000000000000000000000000000000005";
 
 const ROOT_LABEL = process.env.ENS_SIM_LABEL ?? `cdsim${Date.now().toString(36)}`;
 const rootName = `${ROOT_LABEL}.eth`;
@@ -145,6 +146,7 @@ async function main() {
   const memberResolver = await predict(ownedResolverSalt(creator));
   const memberRegistry = await predict(registrySalt(memberName));
   const docketResolver = await predict(docketResolverSalt(creator, docketName));
+  const docketRegistry = await predict(registrySalt(docketName));
 
   const price = await readRegistrar<unknown>("getRegisterPrice", [ROOT_LABEL, duration, SEPOLIA.mockUsdc]);
   const parts = typeof price === "bigint" ? [price] : Object.values(price as Record<string, bigint>);
@@ -194,6 +196,10 @@ async function main() {
 
     // EnsNaming.openDocket
     call(operator, SEPOLIA.verifiableFactory, factoryAbi, "deployProxy", [
+      SEPOLIA.userRegistryImpl, registrySalt(docketName), initRegistry([{ account: operator, roleBitmap: OPERATOR_SUBNAME_ROLES }]),
+    ], "deploy docket registry"),
+    call(operator, docketRegistry, userRegistryAbi, "setParent", [memberRegistry, "truck-rule"], "docket setParent"),
+    call(operator, SEPOLIA.verifiableFactory, factoryAbi, "deployProxy", [
       SEPOLIA.permissionedResolverImpl, docketResolverSalt(creator, docketName),
       // During initialize the caller is the factory, so it holds text admin for this one transaction.
       initResolver([{ account: SEPOLIA.verifiableFactory, roleBitmap: ADMIN_SET_TEXT }], [
@@ -207,13 +213,14 @@ async function main() {
       ]),
     ], "deploy docket resolver with all EAC grants in one tx"),
     call(operator, memberRegistry, userRegistryAbi, "register", [
-      "truck-rule", creator, zeroAddress, docketResolver, MEMBER_TOKEN_ROLES, expiry,
+      "truck-rule", creator, docketRegistry, docketResolver, MEMBER_TOKEN_ROLES, expiry,
     ], "register docket"),
 
     // EnsNaming.ensureAgentName
     call(operator, memberRegistry, userRegistryAbi, "register", ["agent", creator, zeroAddress, memberResolver, 0n, expiry], "register agent"),
 
     // EnsNaming.writeComment, setDocketArchive, setDocketStatus
+    call(operator, docketRegistry, userRegistryAbi, "register", ["comment-1", commenter, zeroAddress, docketResolver, 0n, expiry], "register comment, owned by its author"),
     call(operator, docketResolver, resolverAbi, "multicall", [[
       setText(commentName, TEXT_KEYS.arkivKey, `0x${"ab".repeat(32)}`),
       setText(commentName, TEXT_KEYS.author, memberName),
@@ -240,6 +247,9 @@ async function main() {
     call(operator, rootRegistry, userRegistryAbi, "setSubregistry", [labelhash("maya"), stranger], "operator replaces a member's registry"),
     call(operator, rootRegistry, userRegistryAbi, "unregister", [labelhash("maya")], "operator deletes a member"),
     call(operator, memberRegistry, userRegistryAbi, "setResolver", [labelhash("truck-rule"), stranger], "operator replaces a docket's resolver"),
+    call(operator, docketRegistry, userRegistryAbi, "unregister", [labelhash("comment-1")], "operator deletes a comment name"),
+    call(operator, docketRegistry, userRegistryAbi, "setResolver", [labelhash("comment-1"), stranger], "operator redirects a comment name"),
+    call(commenter, docketRegistry, userRegistryAbi, "setResolver", [labelhash("comment-1"), stranger], "author redirects their comment name"),
     call(operator, rootRegistry, userRegistryAbi, "setParent", [stranger, "x"], "operator remounts the root registry"),
     call(creator, rootRegistry, userRegistryAbi, "register", ["sybil", creator, zeroAddress, zeroAddress, 0n, expiry], "member mints a second name"),
     call(operator, rootRegistry, userRegistryAbi, "grantRootRoles", [DANGEROUS_REGISTRY_ROLES, operator], "operator regains root roles"),
@@ -262,8 +272,16 @@ async function main() {
     },
     emancipated(rootRegistry, "root registry is emancipated"),
     emancipated(memberRegistry, "member registry is emancipated"),
+    emancipated(docketRegistry, "docket registry is emancipated"),
+    canonical(docketRegistry, "canonical name of the docket registry", docketName),
+    {
+      ...call(stranger, docketRegistry, userRegistryAbi, "findOwner", ["comment-1"], "comment name is owned by its author"),
+      decode: (data) => `0x${data.slice(-40)}`,
+      expect: commenter,
+    },
     canonical(rootRegistry, "canonical name of the root registry", rootName),
     canonical(memberRegistry, "canonical name of the member registry", memberName),
+    { from: stranger, to: docketRegistry, data: encodeFunctionData({ abi: userRegistryAbi as Abi, functionName: "findTokenId", args: ["comment-1"] }), label: "read comment token id" },
     { from: stranger, to: rootRegistry, data: memberTokenId, label: "read member token id" },
   ];
 
@@ -298,13 +316,16 @@ async function main() {
   const first = await simulate(blocks);
   const tokenResult = first[3]?.calls.at(-1);
   const tokenId = tokenResult?.status === "0x1" ? BigInt(tokenResult.returnData) : 0n;
+  const commentTokenResult = first[3]?.calls.at(-2);
+  const commentTokenId = commentTokenResult?.status === "0x1" ? BigInt(commentTokenResult.returnData) : 0n;
 
   // The soulbound check needs the token ID, so it runs with the same state in a second pass.
   const transfers: Step[] = [
     call(creator, rootRegistry, userRegistryAbi, "unsafeTransfer", [stranger, tokenId, "0x"], "member sells their name (unsafeTransfer)"),
     call(creator, rootRegistry, userRegistryAbi, "safeTransferFrom", [creator, stranger, tokenId, 1n, "0x"], "member sells their name (safeTransferFrom)"),
+    call(commenter, docketRegistry, userRegistryAbi, "unsafeTransfer", [stranger, commentTokenId, "0x"], "author sells their comment name"),
   ];
-  blocks[3]!.calls = views.slice(0, -1);
+  blocks[3]!.calls = views.slice(0, -2);
   blocks.push({ calls: transfers, time: latest.timestamp + minAge + 96n, deny: true });
 
   const result = await simulate(blocks);

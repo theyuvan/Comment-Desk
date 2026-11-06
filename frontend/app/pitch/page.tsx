@@ -308,7 +308,7 @@ function NamesSlide() {
   const chain = [
     ["maya.commentdesk.eth", "the member", "One per verified human, and it can never be sold"],
     ["truck-rule.maya.commentdesk.eth", "their docket", "Its own Permissioned Resolver, with access split by record"],
-    ["comment-1.truck-rule.maya.commentdesk.eth", "one comment", "Records on that resolver, no token needed per comment"],
+    ["comment-1.truck-rule.maya.commentdesk.eth", "one comment", "A real name, owned by the person who wrote it"],
   ]
   return (
     <div>

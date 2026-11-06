@@ -67,10 +67,10 @@ commentdesk.eth                      UserRegistry and platform resolver
 maya.commentdesk.eth                 non-transferable token, the member's own resolver and UserRegistry
 agent.maya.commentdesk.eth           the member's agent, a separate name
 truck-rule.maya.commentdesk.eth      token owned by the member, its own PermissionedResolver
-comment-1.truck-rule.maya...         records on that resolver, resolved by wildcard, no token
+comment-1.truck-rule.maya...         non-transferable token owned by its author, records on the docket's resolver
 ```
 
-Comments are resolver records and not tokens. ENS recommends this for operator-managed subnames, and a token per comment would cost far more.
+Comments are real names, owned by the person who wrote them, because ENS uses a `UserRegistry` when subnames have separate owners. Resolver-only records resolve on-chain, but the ENS app reports them as not existing.
 
 Access on a docket's resolver:
 
@@ -86,13 +86,13 @@ How each ENS rule is applied:
 
 | ENS feature | How we use it |
 | --- | --- |
-| Emancipation | Member registries give the operator only `ROLE_REGISTRAR` and `ROLE_RENEW`, like the `.eth` registry, so `isEmancipated()` is true from birth. `npm run emancipate:ens -- --yes` does the same for the root. That step is permanent. |
+| Emancipation | Member and docket registries give the operator only `ROLE_REGISTRAR` and `ROLE_RENEW`, like the `.eth` registry, so `isEmancipated()` is true from birth. `npm run emancipate:ens -- --yes` does the same for the root. That step is permanent. |
 | Withheld `ROLE_CAN_TRANSFER_ADMIN` | Member names cannot be transferred, so a verified identity cannot be sold. |
 | `setParent` | Every registry links back to its parent, so ENS can verify the chain and find canonical names. |
 | Per-account resolver | Each member owns a resolver the operator has no role on, so it cannot repoint their name. |
 | Upgrade roles | Never granted, so no registry or resolver here can be upgraded. |
 
-`npm run simulate:ens` proves all of the above, including 19 attempts that must fail.
+`npm run simulate:ens` proves all of the above, including 23 attempts that must fail.
 
 The docket's ENS record also stores the Swarm reference. That pointer outlives the Arkiv docket entity, which expires after its grace period.
 

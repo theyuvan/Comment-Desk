@@ -53,15 +53,15 @@ export function Globe({ seats = HUMANS.length, className = "" }: { seats?: numbe
         height: side * ratio,
         phi,
         theta: 0.28,
-        dark: 1,
-        diffuse: 1.6,
+        dark: 0.35,
+        diffuse: 1,
         mapSamples: 20000,
-        mapBrightness: 3.2,
-        baseColor: [0.52, 0.52, 0.53],
+        mapBrightness: 5,
+        baseColor: [0.58, 0.58, 0.6],
         markerColor: [1, 1, 1],
-        glowColor: [0.7, 0.7, 0.71],
-        markerElevation: 0,
-        markers: HUMANS.slice(0, seats).map((location) => ({ location, size: 0.035 })),
+        glowColor: [0.75, 0.75, 0.76],
+        markerElevation: 0.04,
+        markers: HUMANS.slice(0, seats).map((location) => ({ location, size: 0.05 })),
       })
       const tick = () => {
         if (dragFrom.current === null && !still) phi += 0.003

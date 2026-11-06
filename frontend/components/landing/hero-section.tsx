@@ -25,11 +25,6 @@ export function HeroSection() {
 
   return (
     <section className="relative min-h-screen flex flex-col overflow-hidden">
-      {/* A globe, one dot per verified human: the pitch made visible before you read a word */}
-      <div className="absolute right-0 top-1/2 -translate-y-1/2 w-[420px] h-[420px] lg:w-[620px] lg:h-[620px] opacity-70 pointer-events-none">
-        <Globe />
-      </div>
-      
       {/* Subtle grid lines */}
       <div className="absolute inset-0 overflow-hidden pointer-events-none opacity-30">
         {[...Array(8)].map((_, i) => (
@@ -57,65 +52,71 @@ export function HeroSection() {
       </div>
       
       <div className="relative z-10 w-full max-w-[1400px] mx-auto my-auto px-6 lg:px-12 pt-32 pb-12 lg:pt-36 lg:pb-16">
-        {/* Eyebrow */}
-        <div 
-          className={`mb-8 transition-all duration-700 ${
-            isVisible ? "opacity-100 translate-y-0" : "opacity-0 translate-y-4"
-          }`}
-        >
-          <span className="inline-flex items-center gap-3 text-sm font-mono text-muted-foreground">
-            <span className="w-8 h-px bg-foreground/30" />
-            Verifiable public input
-          </span>
+        {/* The globe, pinned to this 1400px column (not the raw viewport), so it never
+            fights the text for space on a wide window. */}
+        <div className="pointer-events-none absolute right-6 top-1/2 hidden h-[320px] w-[320px] -translate-y-1/2 opacity-90 md:block lg:right-12 lg:h-[460px] lg:w-[460px]">
+          <Globe />
         </div>
-        
-        {/* Main headline */}
-        <div className="mb-12">
-          <h1 
-            className={`text-[clamp(3rem,12vw,10rem)] font-display leading-[0.9] tracking-tight transition-all duration-1000 ${
-              isVisible ? "opacity-100 translate-y-0" : "opacity-0 translate-y-8"
+
+        <div className="relative max-w-[560px] md:max-w-[640px] lg:max-w-[720px]">
+          {/* Eyebrow */}
+          <div
+            className={`mb-8 transition-all duration-700 ${
+              isVisible ? "opacity-100 translate-y-0" : "opacity-0 translate-y-4"
             }`}
           >
-            <span className="block">Public input</span>
-            <span className="block">
-              you can{" "}
-              <span className="relative inline-block">
-                <span 
-                  key={wordIndex}
-                  className="inline-flex"
-                >
-                  {words[wordIndex].split("").map((char, i) => (
-                    <span
-                      key={`${wordIndex}-${i}`}
-                      className="inline-block animate-char-in"
-                      style={{
-                        animationDelay: `${i * 50}ms`,
-                      }}
-                    >
-                      {char}
-                    </span>
-                  ))}
-                </span>
-                <span className="absolute -bottom-2 left-0 right-0 h-3 bg-foreground/10" />
-              </span>
+            <span className="inline-flex items-center gap-3 text-sm font-mono text-muted-foreground">
+              <span className="w-8 h-px bg-foreground/30" />
+              Verifiable public input
             </span>
-          </h1>
-        </div>
-        
-        {/* Description */}
-        <div className="grid lg:grid-cols-2 gap-12 lg:gap-24 items-end">
-          <p 
-            className={`text-xl lg:text-2xl text-muted-foreground leading-relaxed max-w-xl transition-all duration-700 delay-200 ${
+          </div>
+
+          {/* Main headline */}
+          <div className="mb-12">
+            <h1
+              className={`text-[clamp(2.75rem,8vw,6rem)] font-display leading-[0.95] tracking-tight transition-all duration-1000 ${
+                isVisible ? "opacity-100 translate-y-0" : "opacity-0 translate-y-8"
+              }`}
+            >
+              <span className="block">Public input</span>
+              <span className="block">
+                you can{" "}
+                <span className="relative inline-block">
+                  <span
+                    key={wordIndex}
+                    className="inline-flex"
+                  >
+                    {words[wordIndex].split("").map((char, i) => (
+                      <span
+                        key={`${wordIndex}-${i}`}
+                        className="inline-block animate-char-in"
+                        style={{
+                          animationDelay: `${i * 50}ms`,
+                        }}
+                      >
+                        {char}
+                      </span>
+                    ))}
+                  </span>
+                  <span className="absolute -bottom-2 left-0 right-0 h-3 bg-foreground/10" />
+                </span>
+              </span>
+            </h1>
+          </div>
+
+          {/* Description */}
+          <p
+            className={`text-xl text-muted-foreground leading-relaxed transition-all duration-700 delay-200 ${
               isVisible ? "opacity-100 translate-y-0" : "opacity-0 translate-y-4"
             }`}
           >
             It feels like Reddit, but every post is tied to one real human, every thread
             concludes with a ruling, and anyone can recount the record themselves.
           </p>
-          
+
           {/* CTAs */}
-          <div 
-            className={`flex flex-col sm:flex-row items-start gap-4 transition-all duration-700 delay-300 ${
+          <div
+            className={`mt-10 flex flex-col sm:flex-row items-start gap-4 transition-all duration-700 delay-300 ${
               isVisible ? "opacity-100 translate-y-0" : "opacity-0 translate-y-4"
             }`}
           >
@@ -130,7 +131,6 @@ export function HeroSection() {
             </Button>
           </div>
         </div>
-        
       </div>
       
       {/* Stats marquee: its own band, so it never crowds the content above */}

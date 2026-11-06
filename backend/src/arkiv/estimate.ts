@@ -85,8 +85,9 @@ export function publicClientFor(accessKey: string) {
     chain: rabdi({ accessKey }),
     cacheTime: 0,
     transport: http(undefined, {
-      timeout: 15_000,
-      retryCount: 1,
+      timeout: 20_000,
+      retryCount: 4,
+      retryDelay: 800,
       fetchOptions: { cache: "no-store", redirect: "error" },
     }),
   });

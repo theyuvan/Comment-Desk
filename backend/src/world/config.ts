@@ -34,7 +34,7 @@ const schema = z.object({
   AGENT_PASS_CONFIRM_TTL_SECONDS: z.coerce.number().int().positive().default(180),
   AGENT_DRAFT_TTL_SECONDS: z.coerce.number().int().positive().default(900),
 
-  // Built-in drafting agent. Needs ANTHROPIC_API_KEY (read by the SDK); without it, members use their own agent.
+  // Built-in drafting agent. Needs GEMINI_API_KEY, or ANTHROPIC_API_KEY as an alternative; without it, members use their own agent.
   AGENT_MODEL: z.string().default("claude-opus-5-5"),
   AGENT_INTERVIEW_TTL_SECONDS: z.coerce.number().int().positive().default(1800),
 });

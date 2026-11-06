@@ -5,6 +5,7 @@ import type { Deps } from "../deps";
 import { WorldStore } from "../store";
 import { loadConfig } from "./config";
 import { createClaudeAgentModel } from "./agent-interview";
+import { createGeminiAgentModel } from "./gemini-model";
 import { createWorldIdpClient } from "./oidc";
 import { createPortalVerifier } from "./portal";
 
@@ -16,7 +17,7 @@ export function startWorldGates(options: { host: WorldGateHost; signIn?: Deps["s
   const env = options.env ?? process.env;
   // PORT belongs to the main API; the gates take WORLD_PORT.
   const config = loadConfig({ ...env, PORT: env.WORLD_PORT ?? "4000" });
-  const agentModel = createClaudeAgentModel(config.AGENT_MODEL);
+  const agentModel = createGeminiAgentModel(config.AGENT_MODEL) ?? createClaudeAgentModel(config.AGENT_MODEL);
   const app = buildApp({
     config,
     store: new WorldStore(config.DATA_FILE),
@@ -31,6 +32,6 @@ export function startWorldGates(options: { host: WorldGateHost; signIn?: Deps["s
     console.log(`World gates on :${config.PORT}`);
     console.log(`  IDKit: ${config.WORLD_ID_ENVIRONMENT}, app ${config.WORLD_ID_APP_ID}, join credential ${config.WORLD_ID_JOIN_CREDENTIAL}`);
     console.log(`  Agent Pass: ${config.AGENT_PASS_ISSUER}, acr ${config.AGENT_PASS_ACR_VALUES.join(" | ")}`);
-    console.log(`  Drafting agent: ${agentModel ? config.AGENT_MODEL : "off (set ANTHROPIC_API_KEY to enable)"}`);
+    console.log(`  Drafting agent: ${agentModel ? config.AGENT_MODEL : "off (set GEMINI_API_KEY to enable)"}`);
   });
 }

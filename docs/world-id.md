@@ -39,8 +39,8 @@ posts it only by approving that exact text with Agent Pass. The result is publis
   toward or away from the majority.
 - **Interviews stay in memory and expire** (`AGENT_INTERVIEW_TTL_SECONDS`). Only the approved comment
   becomes public.
-- Model: `claude-opus-5-5` (`AGENT_MODEL`), with server-side fallback if a request is declined.
-  Without `ANTHROPIC_API_KEY` the agent is off, and members bring their own agent with a token from
+- Model: Gemini through `GEMINI_API_KEY`, `gemini-3.5-flash` by default (`AGENT_MODEL`). `ANTHROPIC_API_KEY` works instead.
+  Without a key the agent is off, and members bring their own agent with a token from
   `/agent` (`npm run agent -w backend -- draft …`).
 
 **Why the record is useful to researchers:** every counted comment on Arkiv carries its author type
@@ -99,7 +99,7 @@ Agent Pass ([backend/src/world/agent-pass.ts](../backend/src/world/agent-pass.ts
 3. Create `backend/.env` from `backend/.env.example`:
    - Fill in the World values. Use `openssl rand -hex 32` for `SESSION_SECRET`.
    - Get the Arkiv and ENS keys from the team privately.
-   - Optionally set `ANTHROPIC_API_KEY` for the drafting agent.
+   - Optionally set `GEMINI_API_KEY` for the drafting agent.
    - Leave `WORLD_GATE` empty: `dev` swaps in an unverified stand-in.
 4. `frontend/.env.local`: `WORLD_BACKEND_URL=http://localhost:4000`.
 5. Install and run, in two terminals:

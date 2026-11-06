@@ -34,6 +34,7 @@ async function call(method: string, path: string, body?: unknown, actor?: Accoun
     method,
     headers: { "content-type": "application/json", cookie: (actor && cookies.get(actor.address)) ?? "" },
     body: body === undefined ? undefined : stringify(body),
+    signal: AbortSignal.timeout(280_000),
   });
   const set = response.headers.get("set-cookie");
   if (actor && set) cookies.set(actor.address, set.split(";")[0]!);
@@ -46,7 +47,8 @@ const sign = (account: Account, primaryType: ActionName, message: Record<string,
 async function join(account: Account, handle: string, subject: string) {
   const issuedAt = BigInt(Date.now());
   const signature = await sign(account, "Join", { handle, policyVersion: "1", issuedAt });
-  await call("POST", "/api/policies/join", { handle, issuedAt, signature });
+  const policy = await call("POST", "/api/policies/join", { handle, issuedAt, signature });
+  if (policy.status !== 201) console.log(`join policy: ${JSON.stringify(policy.body)}`);
   const request = await call("POST", "/api/world/requests", { purpose: "join", handle, wallet: account.address }, account);
   return call("POST", "/api/world/verify/join", { result: { nonce: request.body.rp_context.nonce, subject } }, account);
 }
@@ -84,12 +86,15 @@ const addressOf = (name: string) =>
 
 async function until<T>(label: string, read: () => Promise<T>, done: (value: T) => boolean, seconds = 180): Promise<T> {
   const stop = Date.now() + seconds * 1000;
-  let value = await read();
-  while (!done(value) && Date.now() < stop) {
+  // A failed read is another try, not a failed check. The deadline still applies.
+  const attempt = () => read().catch(() => undefined as T);
+  const ok = (value: T) => value !== undefined && done(value);
+  let value = await attempt();
+  while (!ok(value) && Date.now() < stop) {
     await new Promise((resolve) => setTimeout(resolve, 5000));
-    value = await read();
+    value = await attempt();
   }
-  check(label, done(value));
+  check(label, ok(value));
   return value;
 }
 
@@ -97,10 +102,10 @@ step("Join (World ID stand-in, real ENS and Arkiv)");
 const creatorHandle = `maya-${run}`;
 const voterHandle = `ravi-${run}`;
 const joined = await join(creator, creatorHandle, `human-a-${run}`);
-check("creator joins", joined.status === 201, joined.body.ensName);
+check("creator joins", joined.status === 200, joined.body.ensName ?? JSON.stringify(joined.body));
 const memberName = joined.body.ensName as string;
 const joinedVoter = await join(voter, voterHandle, `human-b-${run}`);
-check("voter joins", joinedVoter.status === 201, joinedVoter.body.ensName);
+check("voter joins", joinedVoter.status === 200, joinedVoter.body.ensName ?? JSON.stringify(joinedVoter.body));
 check("member name resolves to their wallet", (await addressOf(memberName))?.toLowerCase() === creator.address.toLowerCase());
 const sybil = await join(privateKeyToAccount(generatePrivateKey()), `sybil-${run}`, `human-a-${run}`);
 check("same human on a new wallet gets their existing name back", sybil.body.returning === true && sybil.body.ensName === memberName);
@@ -113,11 +118,15 @@ const accepted = await call("POST", "/api/policies/docket-creation", {
   issuedAt: policyAt,
   signature: await sign(creator, "AcceptDocketPolicy", { policyVersion: "1", issuedAt: policyAt }),
 });
-check("creator policy signed", accepted.status === 201, accepted.body.key);
+check("creator policy signed", accepted.status === 201, accepted.body.key ?? JSON.stringify(accepted.body));
 await new Promise((resolve) => setTimeout(resolve, 4000));
 const deadline = BigInt(Date.now() + 420_000);
 const opened = await openDocket(creator, "truck-rule", deadline);
 check("docket opens", opened.status === 201, stringify(opened.body));
+if (opened.status !== 201) {
+  console.log("\nStopped: everything after this needs a docket.");
+  process.exit(1);
+}
 const docket = opened.body.key as Hex;
 const docketName = opened.body.ensName as string;
 await until("docket status resolves on ENS", () => text(docketName, TEXT_KEYS.status), (value) => value === "open", 60);
@@ -270,7 +279,8 @@ const closed = await call("POST", `/api/dockets/${docket}/close`, {
   issuedAt: closedAt,
   signature: await sign(creator, "CloseDocket", { docket, rulingHash: hash(ruling), issuedAt: closedAt }),
 });
-check("creator publishes the ruling", closed.status === 200);
+check("creator publishes the ruling", closed.status === 200, closed.status === 200 ? "" : stringify(closed.body));
+if (closed.status !== 200) process.exit(1);
 
 step("Swarm");
 const afterClose = await until("case file reaches Swarm", () => call("GET", `/api/dockets/${docket}`), (value) => Boolean(value.body.swarmRef), 120);

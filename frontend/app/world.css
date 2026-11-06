@@ -173,3 +173,16 @@
 .history > * + * {
   margin-top: 0.5rem;
 }
+
+/* The landing hero's grid, for every other page. */
+.page-lines {
+  position: fixed;
+  inset: 0;
+  z-index: 0;
+  pointer-events: none;
+  opacity: 0.3;
+  background-image:
+    linear-gradient(to right, color-mix(in oklch, var(--foreground) 10%, transparent) 1px, transparent 1px),
+    linear-gradient(to bottom, color-mix(in oklch, var(--foreground) 10%, transparent) 1px, transparent 1px);
+  background-size: calc(100% / 12) calc(100% / 8);
+}

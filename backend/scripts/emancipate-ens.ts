@@ -10,7 +10,7 @@
 import { createPublicClient, createWalletClient, http, type Abi, type Address, type Hex } from "viem";
 import { privateKeyToAccount } from "viem/accounts";
 import { sepolia } from "viem/chains";
-import { DANGEROUS_REGISTRY_ROLES, PARENT_ROLES, SEPOLIA, factoryAbi, userRegistryAbi } from "../src/ens/constants.ts";
+import { DANGEROUS_REGISTRY_ROLES, PARENT_ROLES, SEPOLIA, factoryAbi, userRegistryAbi } from "@commentdesk/contracts/ens";
 import { registrySalt } from "../src/ens/names.ts";
 
 const key = process.env.ENS_OPERATOR_PRIVATE_KEY as Hex | undefined;

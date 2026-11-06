@@ -3,7 +3,7 @@ import { rabdi } from "@arkiv-network/sdk/chains";
 import { and, asc, eq, gt } from "@arkiv-network/sdk/query";
 import { key as keyValue } from "@arkiv-network/sdk/schema";
 import { http, type Address, type Hex } from "viem";
-import { CommentSchema, DocketSchema } from "./arkiv/schemas.ts";
+import { CommentSchema, DocketSchema } from "@commentdesk/contracts/arkiv";
 import { tally, type Tally, type TallyComment } from "./recount.ts";
 
 export type Publisher = { address: Address; chainId: number };

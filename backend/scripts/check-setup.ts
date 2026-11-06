@@ -9,7 +9,7 @@ import { rabdi } from "@arkiv-network/sdk/chains";
 import { createPublicClient as createViemClient, formatEther, http, type Abi, type Hex } from "viem";
 import { privateKeyToAccount } from "viem/accounts";
 import { sepolia } from "viem/chains";
-import { SEPOLIA, ethRegistrarAbi } from "../src/ens/constants.ts";
+import { SEPOLIA, ethRegistrarAbi } from "@commentdesk/contracts/ens";
 
 const env: Record<string, string> = {};
 if (existsSync(".env")) {

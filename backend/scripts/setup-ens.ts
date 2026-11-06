@@ -32,7 +32,7 @@ import {
   mockUsdcAbi,
   resolverAbi,
   userRegistryAbi,
-} from "../src/ens/constants.ts";
+} from "@commentdesk/contracts/ens";
 import { dnsEncode, ownedResolverSalt, registrySalt } from "../src/ens/names.ts";
 
 const key = process.env.ENS_OPERATOR_PRIVATE_KEY as Hex | undefined;

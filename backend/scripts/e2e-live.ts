@@ -9,7 +9,7 @@ import { createPublicClient, encodeFunctionData, http, keccak256, parseAbi, stri
 import { generatePrivateKey, privateKeyToAccount } from "viem/accounts";
 import { sepolia } from "viem/chains";
 import { DOMAIN, TYPES, type ActionName } from "../src/auth.ts";
-import { SEPOLIA, TEXT_KEYS, universalHelperAbi, userRegistryAbi, resolverAbi } from "../src/ens/constants.ts";
+import { SEPOLIA, TEXT_KEYS, universalHelperAbi, userRegistryAbi, resolverAbi } from "@commentdesk/contracts/ens";
 import { dnsEncode, registrySalt } from "../src/ens/names.ts";
 
 const API = process.env.E2E_API ?? "http://localhost:8787";

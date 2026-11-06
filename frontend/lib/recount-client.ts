@@ -1,25 +1,10 @@
 import { createPublicClient } from "@arkiv-network/sdk"
 import { rabdi } from "@arkiv-network/sdk/chains"
 import { and, asc, eq, gt } from "@arkiv-network/sdk/query"
-import { bytes, defineSchema, key as keyValue, str, u64 } from "@arkiv-network/sdk/schema"
+import { key as keyValue } from "@arkiv-network/sdk/schema"
+import { CommentSchema as Comment, DocketSchema as Docket } from "@commentdesk/contracts/arkiv"
 import { hexToString, http, type Address, type Hex } from "viem"
 import { tally, type Tally, type TallyComment } from "./recount"
-
-// Only the columns a recount reads. Names must match backend/src/arkiv/schemas.ts.
-const Docket = defineSchema("commentdesk_docket_v1", {
-  deadline: u64().indexed(),
-  status: str().indexed(),
-  title: str(),
-  body: bytes(),
-})
-const Comment = defineSchema("commentdesk_comment_v1", {
-  docket_key: str().indexed(),
-  topic: str().indexed(),
-  owner_hash: str().indexed(),
-  author_type: str().indexed(),
-  sentiment: str().indexed(),
-  submitted_at: u64().indexed(),
-})
 
 export type Recount = { title: string; status: string; tally: Tally; block: bigint }
 

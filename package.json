@@ -3,13 +3,14 @@
   "private": true,
   "workspaces": [
     "shared",
+    "contracts",
     "backend",
     "frontend"
   ],
   "scripts": {
     "dev:backend": "npm run dev -w backend",
     "dev:frontend": "npm run dev -w frontend",
-    "typecheck": "npm run typecheck -w shared && npm run typecheck -w backend && npx -w frontend tsc --noEmit",
+    "typecheck": "npm run typecheck -w shared && npm run typecheck -w contracts && npm run typecheck -w backend && npx -w frontend tsc --noEmit",
     "test": "npm test -w backend"
   }
 }

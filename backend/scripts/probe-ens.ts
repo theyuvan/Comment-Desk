@@ -6,7 +6,7 @@
  */
 import { createPublicClient, http, type Abi, type Address } from "viem";
 import { sepolia } from "viem/chains";
-import { SEPOLIA, TEXT_KEYS, universalHelperAbi } from "../src/ens/constants.ts";
+import { SEPOLIA, TEXT_KEYS, universalHelperAbi } from "@commentdesk/contracts/ens";
 import { dnsEncode } from "../src/ens/names.ts";
 
 const docketName = process.argv[2];

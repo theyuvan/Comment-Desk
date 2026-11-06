@@ -1,0 +1,21 @@
+{
+  "name": "@commentdesk/contracts",
+  "version": "0.1.0",
+  "private": true,
+  "type": "module",
+  "description": "Comment Desk's on-chain layer: the ENSv2 Sepolia deployment it calls, and the Arkiv entity schemas it writes",
+  "exports": {
+    "./ens": "./ens/sepolia.ts",
+    "./arkiv": "./arkiv/schemas.ts"
+  },
+  "scripts": {
+    "typecheck": "tsc --noEmit"
+  },
+  "dependencies": {
+    "@arkiv-network/sdk": "^1.0.1",
+    "viem": "^2.57.16"
+  },
+  "devDependencies": {
+    "typescript": "^5"
+  }
+}

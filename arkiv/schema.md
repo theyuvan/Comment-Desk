@@ -1,6 +1,6 @@
 # Arkiv schema
 
-Comment Desk writes to Rabdi (chain 7794095) with `@arkiv-network/sdk` 1.0.1. The schemas are in [backend/src/arkiv/schemas.ts](../backend/src/arkiv/schemas.ts).
+Comment Desk writes to Rabdi (chain 7794095) with `@arkiv-network/sdk` 1.0.1. The schemas are in [contracts/arkiv/schemas.ts](../contracts/arkiv/schemas.ts).
 
 **Publisher wallet:** `0x4C16bF7e5267530D8185A92B8CA6ec11cCb85310`. It is `$creator` and `$owner` of every entity. People are identified by the `owner_hash` column, a domain-separated keccak256 of their wallet.
 

@@ -43,7 +43,7 @@ import {
   resolverAbi,
   universalHelperAbi,
   userRegistryAbi,
-} from "../src/ens/constants.ts";
+} from "@commentdesk/contracts/ens";
 import { dnsEncode, docketResolverSalt, labelhash, ownedResolverSalt, registrySalt } from "../src/ens/names.ts";
 
 const RPC = process.env.SEPOLIA_RPC_URL ?? "https://ethereum-sepolia-rpc.publicnode.com";

@@ -24,7 +24,7 @@ import {
   factoryAbi,
   resolverAbi,
   userRegistryAbi,
-} from "./constants.ts";
+} from "@commentdesk/contracts/ens";
 import { dnsEncode, docketResolverSalt, ownedResolverSalt, registrySalt } from "./names.ts";
 
 export type DocketRecords = {

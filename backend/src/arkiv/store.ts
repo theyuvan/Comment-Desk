@@ -3,7 +3,7 @@ import { and, asc, eq, gt } from "@arkiv-network/sdk/query";
 import { i32, key as keyValue, u64, type Schema } from "@arkiv-network/sdk/schema";
 import { hexToString, stringToBytes, type Address, type Hex } from "viem";
 import { AppError } from "../core.ts";
-import { CommentSchema, DocketSchema, MemberSchema, PolicyAcceptanceSchema } from "./schemas.ts";
+import { CommentSchema, DocketSchema, MemberSchema, PolicyAcceptanceSchema } from "@commentdesk/contracts/arkiv";
 import type { ArkivWriter } from "./writer.ts";
 
 /**

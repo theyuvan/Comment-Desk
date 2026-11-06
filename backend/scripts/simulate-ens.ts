@@ -191,10 +191,26 @@ async function main() {
       ],
     ]),
     call(operator, memberRegistry, userRegistryAbi, "register", [
-      "truck-rule", creator, "0x0000000000000000000000000000000000000000", docketResolver, 0n, expiry,
+      "truck-rule", creator, "0x0000000000000000000000000000000000000000", docketResolver, MEMBER_TOKEN_ROLES, expiry,
     ]),
-    call(operator, docketResolver, resolverAbi, "setText", [dnsEncode(commentName), TEXT_KEYS.author, memberName]),
-    call(operator, docketResolver, resolverAbi, "setText", [dnsEncode(commentName), TEXT_KEYS.authorType, "human"]),
+    call(operator, memberRegistry, userRegistryAbi, "register", [
+      "agent", creator, "0x0000000000000000000000000000000000000000", platformResolver, 0n, expiry,
+    ]),
+    call(operator, platformResolver, resolverAbi, "multicall", [
+      [encodeFunctionData({ abi: resolverAbi as Abi, functionName: "setAddress", args: [dnsEncode(`agent.${memberName}`), COIN_TYPE_ETH, creator] })],
+    ]),
+    call(operator, docketResolver, resolverAbi, "multicall", [
+      [
+        [TEXT_KEYS.arkivKey, `0x${"ab".repeat(32)}`],
+        [TEXT_KEYS.author, memberName],
+        [TEXT_KEYS.authorType, "human"],
+        [TEXT_KEYS.topic, "emissions"],
+      ].map(([key, value]) =>
+        encodeFunctionData({ abi: resolverAbi as Abi, functionName: "setText", args: [dnsEncode(commentName), key, value] }),
+      ),
+    ]),
+    call(operator, docketResolver, resolverAbi, "setText", [dnsEncode(docketName), TEXT_KEYS.swarm, "ab".repeat(32)]),
+    call(operator, docketResolver, resolverAbi, "setText", [dnsEncode(docketName), TEXT_KEYS.status, "closed"]),
     call(moderator, docketResolver, resolverAbi, "setText", [dnsEncode(docketName), TEXT_KEYS.status, "closed-for-cause"]),
   ];
 
@@ -229,6 +245,7 @@ async function main() {
   });
   const block3 = [
     nameResolve(memberName, "addr", []),
+    nameResolve(`agent.${memberName}`, "addr", []),
     nameResolve(commentName, "text", [TEXT_KEYS.author]),
     nameResolve(docketName, "text", [TEXT_KEYS.status]),
   ];

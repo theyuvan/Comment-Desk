@@ -88,10 +88,34 @@ export function Eyebrow({ children }: { children: ReactNode }) {
   return <div className="mb-3 font-mono text-xs text-muted-foreground">{children}</div>
 }
 
+/** World, Arkiv and ENS: the three real services a wait is usually for. */
+function LoadingMarks() {
+  const marks = [
+    { label: "World", path: "M12 2a10 10 0 100 20 10 10 0 000-20Zm0 0c2.5 2.5 3.8 5.8 3.8 10S14.5 19.5 12 22M12 2C9.5 4.5 8.2 7.8 8.2 12S9.5 19.5 12 22M3 9h18M3 15h18" },
+    { label: "Arkiv", path: "M4 6c0-1.7 3.6-3 8-3s8 1.3 8 3-3.6 3-8 3-8-1.3-8-3Zm0 0v12c0 1.7 3.6 3 8 3s8-1.3 8-3V6M4 12c0 1.7 3.6 3 8 3s8-1.3 8-3" },
+    { label: "ENS", path: "M12 2 3 7v10l9 5 9-5V7l-9-5Zm0 0v20M3 7l9 5 9-5" },
+  ]
+  return (
+    <span className="inline-flex items-center gap-2" aria-hidden="true">
+      {marks.map(({ label, path }, index) => (
+        <svg
+          key={label}
+          viewBox="0 0 24 24"
+          className="h-3.5 w-3.5 animate-pulse text-muted-foreground motion-reduce:animate-none"
+          style={{ animationDelay: `${index * 220}ms`, animationDuration: "1.3s" }}
+        >
+          <path d={path} fill="none" stroke="currentColor" strokeWidth="1.6" strokeLinecap="round" strokeLinejoin="round" />
+        </svg>
+      ))}
+    </span>
+  )
+}
+
 export function Loading({ children }: { children: ReactNode }) {
   return (
-    <p className="animate-pulse text-sm text-muted-foreground motion-reduce:animate-none" role="status">
-      {children}
+    <p className="flex items-center gap-2.5 text-sm text-muted-foreground" role="status">
+      <LoadingMarks />
+      <span className="animate-pulse motion-reduce:animate-none">{children}</span>
     </p>
   )
 }

@@ -1,6 +1,6 @@
 import type { Address, Hex } from "viem"
 
-export const API_URL = process.env.NEXT_PUBLIC_API_URL ?? "http://localhost:8787"
+export const API_URL = process.env.NEXT_PUBLIC_API_URL ?? ""
 /** A Sepolia ENS app page for any name, so the name chain is clickable. */
 export const ensUrl = (name: string) => `https://sepolia.app.ens.domains/${name}`
 
@@ -13,10 +13,24 @@ export class ApiError extends Error {
   }
 }
 
-export type Health = { ok: boolean; mode: "live" | "memory"; rootName: string; publisher: Address; chainId: number }
+export type Health = {
+  ok: boolean
+  mode: "live" | "memory"
+  world: "dev" | "world"
+  rootName: string
+  publisher: Address
+  chainId: number
+}
 export type Stats = { members: number; dockets: number; comments: number; countedComments: number }
-export type Member = { key: Hex; ensName: string; joinedAt: string; proofRef: string; canOpenDockets: boolean }
-export type CredentialLevel = "proof_of_human" | "proof_of_presence"
+export type Member = {
+  key: Hex
+  ensName: string
+  joinedAt: string
+  proofRef: string
+  canOpenDockets: boolean
+  isModerator: boolean
+}
+export type CredentialLevel = "strict" | "soft"
 export type Phase = "open" | "awaiting-ruling" | "closed" | "closed-for-cause"
 
 export type Docket = {

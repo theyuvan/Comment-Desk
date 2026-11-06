@@ -4,7 +4,7 @@ import { useEffect, useState } from "react"
 import Link from "next/link"
 import { useParams } from "next/navigation"
 import type { Address, Hex } from "viem"
-import { Eyebrow, Notice, Shell, useHealth } from "@/components/app/shell"
+import { Eyebrow, Loading, Notice, Shell, useHealth } from "@/components/app/shell"
 import { Button } from "@/components/ui/button"
 import { api, type Tally } from "@/lib/api"
 import { recountInBrowser, type Recount } from "@/lib/recount-client"
@@ -40,7 +40,7 @@ export default function RecountPage() {
 
       {health?.mode === "memory" && <Notice>Recounts need real Arkiv data, and this is the local demo.</Notice>}
       {error && <Notice tone="error">{error}</Notice>}
-      {health?.mode === "live" && !result && !error && <p className="text-sm text-muted-foreground">Reading Arkiv from your browser…</p>}
+      {health?.mode === "live" && !result && !error && <Loading>Reading Arkiv from your browser…</Loading>}
 
       {result && (
         <div className="space-y-6">

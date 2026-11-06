@@ -1,18 +1,20 @@
 "use client"
 
-import { useCallback, useEffect, useState, type FormEvent } from "react"
+import { Suspense, useCallback, useEffect, useState, type FormEvent } from "react"
 import Link from "next/link"
 import { useParams } from "next/navigation"
+import { Countdown } from "@/components/app/countdown"
 import { CredentialLabel, DocketPhase, formatDate } from "@/components/app/docket-phase"
-import { EnsLink, Eyebrow, Notice, Shell, useMember } from "@/components/app/shell"
+import { EnsLink, Eyebrow, Loading, Notice, Shell, useMember } from "@/components/app/shell"
 import { Button } from "@/components/ui/button"
 import { Label } from "@/components/ui/label"
 import { Textarea } from "@/components/ui/textarea"
 import { api, request, type ArchiveCheck, type Comment, type Docket, type Member, type Tally } from "@/lib/api"
-import { getWallet, signAction, textHash } from "@/lib/wallet"
-import { getWorldProof } from "@/lib/world"
+import { signAction, textHash } from "@/lib/wallet"
+import { AgentDraftReview } from "@/world/AgentDraftReview"
+import { AgentPassResult } from "@/world/AgentPassResult"
+import { WorldVerifyButton } from "@/world/WorldVerifyButton"
 
-type AuthorType = "human" | "agent"
 const SENTIMENTS = ["support", "oppose", "neutral"] as const
 
 function TallyView({ tally }: { tally: Tally }) {
@@ -23,10 +25,10 @@ function TallyView({ tally }: { tally: Tally }) {
       <div className="space-y-5">
         {tally.topics.map((topic) => (
           <div key={topic.topic}>
-            <div className="mb-1 flex justify-between text-sm">
+            <div className="mb-1 flex justify-between gap-3 text-sm">
               <span>{topic.topic}</span>
               <span className="font-mono text-xs text-muted-foreground">
-                {topic.counted} counted · {topic.human} human · {topic.agent} agent
+                {topic.human} human · {topic.agent} agent
               </span>
             </div>
             <div className="flex h-2 gap-px bg-foreground/5" aria-hidden="true">
@@ -48,133 +50,98 @@ function TallyView({ tally }: { tally: Tally }) {
   )
 }
 
-function Composer({ docket, member, onPosted }: { docket: Docket; member: Member; onPosted: () => void }) {
-  const [authorType, setAuthorType] = useState<AuthorType>("human")
-  const [topic, setTopic] = useState(docket.topics[0] ?? "")
+function Composer({ docket, comments, member, onPosted }: { docket: Docket; comments: Comment[]; member: Member; onPosted: () => void }) {
+  const [path, setPath] = useState<"human" | "agent">("human")
+  const [topic, setTopic] = useState("")
   const [sentiment, setSentiment] = useState<(typeof SENTIMENTS)[number]>("support")
-  const [stance, setStance] = useState("")
-  const [approved, setApproved] = useState("")
-  const [error, setError] = useState("")
-  const [result, setResult] = useState("")
-  const [busy, setBusy] = useState(false)
+  const [text, setText] = useState("")
+  const [posted, setPosted] = useState("")
 
-  const isAgent = authorType === "agent"
-  const stale = isAgent && approved !== "" && approved !== stance
+  const done = new Set(
+    comments.filter((comment) => comment.authorEns === member.ensName || comment.authorEns === `agent.${member.ensName}`).map((comment) => comment.topic),
+  )
+  const open = docket.topics.filter((item) => !done.has(item))
+  const selected = open.includes(topic) ? topic : (open[0] ?? "")
 
-  async function submit(event: FormEvent) {
-    event.preventDefault()
-    setBusy(true)
-    setError("")
-    setResult("")
-    try {
-      const stanceHash = textHash(stance)
-      const { submissionKey } = await request<{ submissionKey: `0x${string}` }>(
-        `/api/dockets/${docket.key}/submission-key`,
-        { method: "POST", body: { wallet: getWallet().address, topic, sentiment, stanceHash, authorType } },
-      )
-      const credentialLevel = docket.credentialLevel
-      const worldProof = await getWorldProof(
-        isAgent
-          ? { action: "agent-confirm", draftKey: submissionKey, credentialLevel }
-          : { action: "human-comment", signal: submissionKey, credentialLevel },
-      )
-      setApproved(stance)
-      const issuedAt = BigInt(Date.now())
-      const signature = await signAction("SubmitComment", {
-        docket: docket.key,
-        topic,
-        sentiment,
-        stanceHash,
-        authorType,
-        issuedAt,
-      })
-      const posted = await request<{ ensName: string; counted: boolean }>(`/api/dockets/${docket.key}/comments`, {
-        method: "POST",
-        body: { topic, sentiment, stance, authorType, issuedAt, signature, worldProof },
-      })
-      setResult(
-        posted.counted
-          ? `Posted and counted as ${posted.ensName}.`
-          : `Posted as ${posted.ensName}. Only your first comment on a topic counts, so this one is on record but not in the tally.`,
-      )
-      setStance("")
-      setApproved("")
-      onPosted()
-    } catch (reason) {
-      setError((reason as Error).message)
-    } finally {
-      setBusy(false)
-    }
+  if (open.length === 0) {
+    return <Notice>You&apos;ve commented on every topic. One counted voice per human per topic.</Notice>
   }
 
   return (
     <section>
       <h2 className="mb-4 font-display text-2xl tracking-tight">Add your comment</h2>
       <div className="mb-5 grid grid-cols-2 border border-foreground/15 text-sm" role="tablist" aria-label="Who wrote this comment">
-        {(["human", "agent"] as const).map((type) => (
+        {(["human", "agent"] as const).map((item) => (
           <button
-            key={type}
+            key={item}
             type="button"
             role="tab"
-            aria-selected={authorType === type}
-            onClick={() => setAuthorType(type)}
-            className={`px-4 py-3 text-left transition-colors ${
-              authorType === type ? "bg-foreground text-background" : "hover:bg-foreground/5"
-            }`}
+            aria-selected={path === item}
+            onClick={() => setPath(item)}
+            className={`px-4 py-3 text-left transition-colors ${path === item ? "bg-foreground text-background" : "hover:bg-foreground/5"}`}
           >
-            <span className="block font-medium">{type === "human" ? "I wrote this" : "My agent drafted this"}</span>
-            <span className={`block text-xs ${authorType === type ? "text-background/70" : "text-muted-foreground"}`}>
-              {type === "human" ? "World ID check" : "Agent Pass confirm on the exact text"}
+            <span className="block font-medium">{item === "human" ? "I wrote this" : "My agent drafted this"}</span>
+            <span className={`block text-xs ${path === item ? "text-background/70" : "text-muted-foreground"}`}>
+              {item === "human" ? "World ID check when you post" : "World ID Agent Pass on the exact text"}
             </span>
           </button>
         ))}
       </div>
-      <form onSubmit={submit} className="space-y-5">
-        <div className="grid gap-5 sm:grid-cols-2">
-          <div className="space-y-2">
-            <Label htmlFor="topic">Topic</Label>
-            <select
-              id="topic"
-              value={topic}
-              onChange={(event) => setTopic(event.target.value)}
-              className="h-9 w-full rounded-md border border-input bg-transparent px-3 text-sm"
-            >
-              {docket.topics.map((item) => (
-                <option key={item}>{item}</option>
-              ))}
-            </select>
+
+      {path === "human" ? (
+        <div className="space-y-5">
+          <div className="grid gap-5 sm:grid-cols-2">
+            <div className="field">
+              <Label htmlFor="topic">Topic</Label>
+              <select id="topic" value={selected} onChange={(event) => setTopic(event.target.value)}>
+                {open.map((item) => (
+                  <option key={item}>{item}</option>
+                ))}
+              </select>
+            </div>
+            <div className="field">
+              <Label htmlFor="sentiment">Your position</Label>
+              <select
+                id="sentiment"
+                value={sentiment}
+                onChange={(event) => setSentiment(event.target.value as (typeof SENTIMENTS)[number])}
+                className="capitalize"
+              >
+                {SENTIMENTS.map((item) => (
+                  <option key={item}>{item}</option>
+                ))}
+              </select>
+            </div>
           </div>
           <div className="space-y-2">
-            <Label htmlFor="sentiment">Your position</Label>
-            <select
-              id="sentiment"
-              value={sentiment}
-              onChange={(event) => setSentiment(event.target.value as (typeof SENTIMENTS)[number])}
-              className="h-9 w-full rounded-md border border-input bg-transparent px-3 text-sm capitalize"
-            >
-              {SENTIMENTS.map((item) => (
-                <option key={item}>{item}</option>
-              ))}
-            </select>
+            <Label htmlFor="stance">Your comment</Label>
+            <Textarea
+              id="stance"
+              value={text}
+              onChange={(event) => {
+                setText(event.target.value)
+                setPosted("")
+              }}
+              rows={5}
+              placeholder="Write it in your own words."
+            />
           </div>
+          {posted && <p className="ok">{posted}</p>}
+          <WorldVerifyButton<{ ensName: string }>
+            input={{ purpose: "comment", docketKey: docket.key, topic: selected, text, sentiment }}
+            verifyPath="/api/world/verify/comment"
+            label="Verify with World ID and post"
+            disabled={!text.trim()}
+            onVerified={(comment) => {
+              setPosted(`Posted as ${comment.ensName}. Its name will appear on ENS in a moment.`)
+              setText("")
+              onPosted()
+            }}
+          />
         </div>
-        <div className="space-y-2">
-          <Label htmlFor="stance">{isAgent ? "Your agent's draft" : "Your comment"}</Label>
-          <Textarea id="stance" value={stance} onChange={(event) => setStance(event.target.value)} rows={5} required />
-          {isAgent && (
-            <p className="text-xs text-muted-foreground">
-              Read every word. Your confirm covers this exact text, and any change needs a new confirm.
-            </p>
-          )}
-        </div>
-        {stale && <Notice>The draft changed after your last approval, so it needs a new confirm.</Notice>}
-        {error && <Notice tone="error">{error}</Notice>}
-        {result && <Notice>{result}</Notice>}
-        <Button type="submit" disabled={busy || !stance.trim()} className="rounded-full">
-          {busy ? "Verifying…" : isAgent ? "Confirm with Agent Pass and post" : "Verify with World ID and post"}
-        </Button>
-        <p className="font-mono text-xs text-muted-foreground">Posting as {isAgent ? `agent.${member.ensName}` : member.ensName}</p>
-      </form>
+      ) : (
+        <AgentDraftReview docketKey={docket.key} />
+      )}
     </section>
   )
 }
@@ -202,7 +169,10 @@ function RulingForm({ docket, onClosed }: { docket: Docket; onClosed: () => void
 
   return (
     <section>
-      <h2 className="mb-4 font-display text-2xl tracking-tight">Publish the ruling</h2>
+      <h2 className="mb-2 font-display text-2xl tracking-tight">Publish the ruling</h2>
+      <p className="mb-4 text-sm text-muted-foreground">
+        This concludes the case. The ruling and the full record then move to Swarm as the permanent case file.
+      </p>
       <form onSubmit={submit} className="space-y-4">
         <Label htmlFor="ruling" className="sr-only">
           Ruling
@@ -214,6 +184,47 @@ function RulingForm({ docket, onClosed }: { docket: Docket; onClosed: () => void
         </Button>
       </form>
     </section>
+  )
+}
+
+function Moderation({ docket, onClosed }: { docket: Docket; onClosed: () => void }) {
+  const [reason, setReason] = useState("")
+  const [error, setError] = useState("")
+  const [busy, setBusy] = useState(false)
+
+  async function submit(event: FormEvent) {
+    event.preventDefault()
+    setBusy(true)
+    setError("")
+    try {
+      const issuedAt = BigInt(Date.now())
+      const signature = await signAction("ModerateDocket", { docket: docket.key, reason, issuedAt })
+      await request(`/api/dockets/${docket.key}/moderate`, { method: "POST", body: { reason, issuedAt, signature } })
+      onClosed()
+    } catch (failure) {
+      setError((failure as Error).message)
+    } finally {
+      setBusy(false)
+    }
+  }
+
+  return (
+    <details className="border border-foreground/15 p-4 text-sm">
+      <summary className="cursor-pointer">Moderator: close for cause</summary>
+      <form onSubmit={submit} className="mt-3 space-y-3">
+        <p className="text-xs text-muted-foreground">
+          Your ENS role can change only this docket&apos;s status. The reason is published as its conclusion.
+        </p>
+        <Label htmlFor="reason" className="sr-only">
+          Reason
+        </Label>
+        <Textarea id="reason" value={reason} onChange={(event) => setReason(event.target.value)} rows={3} placeholder="Why this docket is being closed" required />
+        {error && <Notice tone="error">{error}</Notice>}
+        <Button type="submit" variant="outline" disabled={busy || !reason.trim()} className="rounded-full">
+          {busy ? "Closing…" : "Close this docket"}
+        </Button>
+      </form>
+    </details>
   )
 }
 
@@ -230,7 +241,7 @@ function CaseRecord({ docket }: { docket: Docket }) {
       <h2 className="mb-4 font-display text-2xl tracking-tight">Conclusion</h2>
       <blockquote className="border-l-2 border-foreground pl-4 text-lg leading-relaxed">{docket.ruling}</blockquote>
       <div className="mt-5 text-sm text-muted-foreground">
-        {!docket.swarmRef && <p>Moving the full record to Swarm…</p>}
+        {!docket.swarmRef && <Loading>Moving the full record to Swarm…</Loading>}
         {docket.swarmRef && (
           <p className="break-all font-mono text-xs">
             Permanent case file:{" "}
@@ -256,12 +267,53 @@ function CaseRecord({ docket }: { docket: Docket }) {
   )
 }
 
+function CommentItem({ comment }: { comment: Comment }) {
+  return (
+    <li className="py-4">
+      <div className="mb-2 flex flex-wrap items-baseline gap-x-3 gap-y-1 text-xs text-muted-foreground">
+        <EnsLink name={comment.authorEns} className="text-foreground" />
+        {comment.authorType === "agent" && <span className="border border-foreground/30 px-1.5 font-mono">agent drafted · human approved</span>}
+        {comment.proofRef.startsWith("dev:") && <span className="border border-destructive/40 px-1.5 font-mono text-destructive">unverified dev proof</span>}
+        <span className="font-mono">
+          {comment.topic} · {comment.sentiment}
+          {comment.ordinal > 1 ? " · not counted" : ""}
+        </span>
+      </div>
+      <p className="whitespace-pre-wrap leading-relaxed">{comment.stance}</p>
+      <details className="mt-2 font-mono text-xs text-muted-foreground">
+        <summary className="cursor-pointer">{formatDate(comment.submittedAt)} · check this record</summary>
+        <dl className="mt-2 grid gap-1">
+          <div>
+            <dt className="inline">ENS </dt>
+            <dd className="inline">
+              <EnsLink name={comment.ensName} />
+            </dd>
+          </div>
+          <div>
+            <dt className="inline">Arkiv </dt>
+            <dd className="inline break-all">
+              <a href={`https://rabdi.explorer.arkiv.network/entity/${comment.key}`} target="_blank" rel="noreferrer" className="underline underline-offset-4">
+                {comment.key}
+              </a>
+            </dd>
+          </div>
+          <div className="break-all">
+            <dt className="inline">Proof </dt>
+            <dd className="inline">{comment.proofRef}</dd>
+          </div>
+        </dl>
+      </details>
+    </li>
+  )
+}
+
 export default function DocketPage() {
   const { key } = useParams<{ key: string }>()
   const { member } = useMember()
   const [docket, setDocket] = useState<Docket>()
   const [comments, setComments] = useState<Comment[]>([])
   const [tally, setTally] = useState<Tally>()
+  const [filter, setFilter] = useState("all")
   const [error, setError] = useState("")
 
   const load = useCallback(() => {
@@ -270,45 +322,57 @@ export default function DocketPage() {
         setDocket(nextDocket)
         setComments(nextComments)
         setTally(nextTally)
+        setError("")
       })
       .catch((reason: Error) => setError(reason.message))
   }, [key])
 
   useEffect(() => {
     load()
-    const timer = setInterval(load, 8000)
+    const timer = setInterval(load, 5000)
     return () => clearInterval(timer)
   }, [load])
 
   if (!docket) {
-    return (
-      <Shell>
-        {error ? <Notice tone="error">{error}</Notice> : <p className="text-sm text-muted-foreground">Reading from Arkiv…</p>}
-      </Shell>
-    )
+    return <Shell>{error ? <Notice tone="error">{error}</Notice> : <Loading>Reading from Arkiv…</Loading>}</Shell>
   }
 
   const creatorName = docket.ensName.slice(docket.ensName.indexOf(".") + 1)
   const isCreator = member?.ensName === creatorName
+  const visible = comments.filter((comment) => filter === "all" || comment.topic === filter)
+  const moderatable = member?.isModerator && (docket.phase === "open" || docket.phase === "awaiting-ruling")
 
   return (
     <Shell>
+      <Suspense>
+        <AgentPassResult />
+      </Suspense>
       <Eyebrow>
-        <DocketPhase docket={docket} /> · <CredentialLabel docket={docket} />
+        <DocketPhase docket={docket} />
+        {docket.phase === "open" && (
+          <>
+            {" · "}
+            <Countdown to={docket.deadline} onEnd={load} />
+          </>
+        )}
+        {" · "}
+        <CredentialLabel docket={docket} />
       </Eyebrow>
       <h1 className="mb-3 font-display text-4xl tracking-tight sm:text-5xl">{docket.title}</h1>
-      <p className="mb-2 text-sm text-muted-foreground">
-        Opened by <EnsLink name={creatorName} /> as <EnsLink name={docket.ensName} />
-      </p>
+      <nav aria-label="Name chain" className="mb-4 flex flex-wrap items-center gap-x-2 gap-y-1 text-xs text-muted-foreground">
+        <EnsLink name={creatorName} />
+        <span aria-hidden="true">›</span>
+        <EnsLink name={docket.ensName} />
+      </nav>
       <p className="mb-10 max-w-2xl text-lg leading-relaxed">{docket.question}</p>
 
       <div className="grid gap-12 lg:grid-cols-[1fr_320px]">
         <div className="min-w-0 space-y-12">
           {docket.ruling && <CaseRecord docket={docket} />}
-          {docket.phase === "open" && member && <Composer docket={docket} member={member} onPosted={load} />}
+          {docket.phase === "open" && member && <Composer docket={docket} comments={comments} member={member} onPosted={load} />}
           {docket.phase === "open" && member === null && (
             <Notice>
-              <Link href="/join" className="underline underline-offset-4">
+              <Link href={`/join?next=/dockets/${docket.key}`} className="underline underline-offset-4">
                 Join or sign in
               </Link>{" "}
               to comment. One person, one counted voice per topic.
@@ -320,25 +384,28 @@ export default function DocketPage() {
           )}
 
           <section>
-            <h2 className="mb-4 font-display text-2xl tracking-tight">The record</h2>
-            {comments.length === 0 && <p className="text-sm text-muted-foreground">No comments yet.</p>}
-            <ul className="divide-y divide-foreground/10 border-y border-foreground/10">
-              {comments.map((comment) => (
-                <li key={comment.key} className="py-4">
-                  <div className="mb-2 flex flex-wrap items-baseline gap-x-3 gap-y-1 text-xs text-muted-foreground">
-                    <EnsLink name={comment.authorEns} className="text-foreground" />
-                    {comment.authorType === "agent" && <span className="border border-foreground/30 px-1.5 font-mono">agent drafted</span>}
-                    {comment.proofRef.startsWith("dev:") && <span className="border border-destructive/40 px-1.5 font-mono text-destructive">unverified dev proof</span>}
-                    <span className="font-mono">
-                      {comment.topic} · {comment.sentiment}
-                      {comment.ordinal > 1 ? " · not counted" : ""}
-                    </span>
-                  </div>
-                  <p className="whitespace-pre-wrap leading-relaxed">{comment.stance}</p>
-                  <p className="mt-2 font-mono text-xs text-muted-foreground">
-                    {formatDate(comment.submittedAt)} · <EnsLink name={comment.ensName} />
-                  </p>
-                </li>
+            <div className="mb-4 flex flex-wrap items-baseline justify-between gap-3">
+              <h2 className="font-display text-2xl tracking-tight">The record</h2>
+              {docket.topics.length > 1 && comments.length > 0 && (
+                <select
+                  aria-label="Filter comments by topic"
+                  value={filter}
+                  onChange={(event) => setFilter(event.target.value)}
+                  className="border border-foreground/15 bg-transparent px-2 py-1 text-xs"
+                >
+                  <option value="all">All topics</option>
+                  {docket.topics.map((topic) => (
+                    <option key={topic}>{topic}</option>
+                  ))}
+                </select>
+              )}
+            </div>
+            {visible.length === 0 && (
+              <p className="text-sm text-muted-foreground">{comments.length === 0 ? "No comments yet." : "No comments on this topic."}</p>
+            )}
+            <ul className="divide-y divide-foreground/10 border-y border-foreground/10 empty:hidden">
+              {visible.map((comment) => (
+                <CommentItem key={comment.key} comment={comment} />
               ))}
             </ul>
           </section>
@@ -349,6 +416,7 @@ export default function DocketPage() {
           <Button asChild variant="outline" className="w-full rounded-full">
             <Link href={`/dockets/${docket.key}/recount`}>Recount this yourself</Link>
           </Button>
+          {moderatable && <Moderation docket={docket} onClosed={load} />}
         </aside>
       </div>
     </Shell>

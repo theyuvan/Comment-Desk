@@ -2,22 +2,42 @@
 
 import { useEffect, useState, type ReactNode } from "react"
 import Link from "next/link"
-import { api, ensUrl, type Health, type Member } from "@/lib/api"
-import { currentWallet } from "@/lib/wallet"
+import { api, ensUrl, request, type Health, type Member } from "@/lib/api"
+import { currentWallet, signAction } from "@/lib/wallet"
 
 const MEMBER_CHANGED = "commentdesk:member-changed"
+
+/** A passkey proves who this is, and this turns that into a session for the World routes. */
+let restoring: Promise<void> | null = null
+function ensureSession() {
+  restoring ??= (async () => {
+    const session = await request<{ memberRef: string } | null>("/api/session").catch(() => null)
+    if (session) return
+    const issuedAt = BigInt(Date.now())
+    const signature = await signAction("SignIn", { issuedAt })
+    await request("/api/session/wallet", { method: "POST", body: { issuedAt, signature } })
+  })().finally(() => {
+    restoring = null
+  })
+  return restoring
+}
 
 export function useMember() {
   const [member, setMember] = useState<Member | null>()
   useEffect(() => {
-    const load = () => {
+    let active = true
+    const load = async () => {
       const wallet = currentWallet()
-      if (!wallet) return setMember(null)
-      api.member(wallet.address).then(setMember).catch(() => setMember(null))
+      const found = wallet ? await api.member(wallet.address).catch(() => null) : null
+      if (found) await ensureSession().catch(() => {})
+      if (active) setMember(found)
     }
     load()
     window.addEventListener(MEMBER_CHANGED, load)
-    return () => window.removeEventListener(MEMBER_CHANGED, load)
+    return () => {
+      active = false
+      window.removeEventListener(MEMBER_CHANGED, load)
+    }
   }, [])
   // Tells every useMember on the page, so the header updates along with the form.
   const refresh = () => window.dispatchEvent(new Event(MEMBER_CHANGED))
@@ -38,7 +58,7 @@ export function EnsLink({ name, className = "" }: { name: string; className?: st
       href={ensUrl(name)}
       target="_blank"
       rel="noreferrer"
-      className={`break-all font-mono underline decoration-foreground/20 underline-offset-4 hover:decoration-foreground ${className}`}
+      className={`break-all font-mono underline decoration-foreground/20 underline-offset-4 transition-colors hover:decoration-foreground ${className}`}
     >
       {name}
     </a>
@@ -62,26 +82,81 @@ export function Eyebrow({ children }: { children: ReactNode }) {
   return <div className="mb-3 font-mono text-xs text-muted-foreground">{children}</div>
 }
 
+export function Loading({ children }: { children: ReactNode }) {
+  return (
+    <p className="animate-pulse text-sm text-muted-foreground motion-reduce:animate-none" role="status">
+      {children}
+    </p>
+  )
+}
+
+/** A short progress list, so a multi-step action never looks stuck. */
+export function Steps({ steps, active }: { steps: string[]; active: number }) {
+  return (
+    <ol className="grid gap-px border border-foreground/15 bg-foreground/15 sm:grid-flow-col sm:auto-cols-fr">
+      {steps.map((step, index) => (
+        <li
+          key={step}
+          aria-current={index === active ? "step" : undefined}
+          className={`bg-background px-3 py-2.5 text-xs ${index === active ? "text-foreground" : "text-muted-foreground"}`}
+        >
+          <span className="font-mono">{index < active ? "✓" : `0${index + 1}`}</span> {step}
+        </li>
+      ))}
+    </ol>
+  )
+}
+
+function Banner({ health }: { health: Health | null | undefined }) {
+  if (health === null) {
+    return (
+      <div className="border-b border-destructive/30 px-6 py-2 text-center text-sm text-destructive" role="alert">
+        Comment Desk can&apos;t be reached right now, so this page can&apos;t load.
+      </div>
+    )
+  }
+  if (health?.mode === "memory") {
+    return (
+      <div className="bg-foreground px-6 py-2 text-center font-mono text-xs text-background">
+        Local demo data. Nothing here is on Arkiv, ENS or Swarm.
+      </div>
+    )
+  }
+  if (health?.world === "dev") {
+    return (
+      <div className="border-b border-foreground/10 bg-foreground/[0.03] px-6 py-2 text-center font-mono text-xs text-muted-foreground">
+        World ID is simulated in this build, so identities here are not verified humans.
+      </div>
+    )
+  }
+  return null
+}
+
 export function Shell({ children }: { children: ReactNode }) {
   const health = useHealth()
   const { member } = useMember()
 
   return (
-    <div className="min-h-dvh bg-background text-foreground">
+    <div className="flex min-h-dvh flex-col bg-background text-foreground">
       <header className="border-b border-foreground/10">
         <div className="mx-auto flex max-w-[1000px] flex-wrap items-center justify-between gap-x-6 gap-y-2 px-6 py-4">
           <Link href="/" className="font-display text-xl tracking-tight">
             Comment Desk
           </Link>
-          <nav className="flex items-center gap-5 text-sm text-muted-foreground">
+          <nav aria-label="Main" className="flex flex-wrap items-center gap-x-5 gap-y-1 text-sm text-muted-foreground">
             <Link href="/dockets" className="transition-colors hover:text-foreground">
               Dockets
             </Link>
             <Link href="/dockets/new" className="transition-colors hover:text-foreground">
               Open a docket
             </Link>
+            {member && (
+              <Link href="/agent" className="transition-colors hover:text-foreground">
+                Your agent
+              </Link>
+            )}
             {member ? (
-              <Link href="/join" className="max-w-[220px] truncate font-mono text-xs text-foreground">
+              <Link href="/join" className="max-w-[200px] truncate font-mono text-xs text-foreground">
                 {member.ensName}
               </Link>
             ) : (
@@ -92,17 +167,16 @@ export function Shell({ children }: { children: ReactNode }) {
           </nav>
         </div>
       </header>
-      {health === null && (
-        <div className="border-b border-destructive/30 px-6 py-2 text-center text-sm text-destructive">
-          The Comment Desk API is not reachable, so this page cannot load.
+      <Banner health={health} />
+      <main className="mx-auto w-full max-w-[1000px] flex-1 px-6 py-12">{children}</main>
+      <footer className="border-t border-foreground/10">
+        <div className="mx-auto flex max-w-[1000px] flex-wrap items-center justify-between gap-x-6 gap-y-1 px-6 py-5 font-mono text-xs text-muted-foreground">
+          <span>Every voice is a real human. Every count is yours to check.</span>
+          <Link href="/pitch" className="transition-colors hover:text-foreground">
+            The pitch
+          </Link>
         </div>
-      )}
-      {health?.mode === "memory" && (
-        <div className="border-b border-foreground/20 bg-foreground px-6 py-2 text-center font-mono text-xs text-background">
-          Local demo data. Nothing here is on Arkiv, ENS or Swarm.
-        </div>
-      )}
-      <main className="mx-auto max-w-[1000px] px-6 py-12">{children}</main>
+      </footer>
     </div>
   )
 }

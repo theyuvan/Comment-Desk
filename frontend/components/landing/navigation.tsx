@@ -8,7 +8,7 @@ import { Menu, X } from "lucide-react";
 const navLinks = [
   { name: "What it does", href: "#features" },
   { name: "How it works", href: "#how-it-works" },
-  { name: "Dockets", href: "/dockets" },
+  { name: "Pitch", href: "/pitch" },
 ];
 
 export function Navigation() {
@@ -65,7 +65,7 @@ export function Navigation() {
           {/* Desktop CTA */}
           <div className="hidden md:flex items-center gap-4">
             <Button asChild size="sm" className={`bg-foreground hover:bg-foreground/90 text-background rounded-full transition-all duration-500 ${isScrolled ? "px-4 h-8 text-xs" : "px-6"}`}>
-              <Link href="/pitch">See the pitch</Link>
+              <Link href="/dockets">Open the app</Link>
             </Button>
           </div>
 
@@ -123,7 +123,7 @@ export function Navigation() {
           style={{ transitionDelay: isMobileMenuOpen ? "300ms" : "0ms" }}
           >
             <Button asChild className="flex-1 bg-foreground text-background rounded-full h-14 text-base" onClick={() => setIsMobileMenuOpen(false)}>
-              <Link href="/pitch">See the pitch</Link>
+              <Link href="/dockets">Open the app</Link>
             </Button>
           </div>
         </div>

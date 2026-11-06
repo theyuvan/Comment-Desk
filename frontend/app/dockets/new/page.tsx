@@ -3,7 +3,7 @@
 import { useState, type FormEvent } from "react"
 import Link from "next/link"
 import { useRouter } from "next/navigation"
-import { Eyebrow, Notice, Shell, useMember } from "@/components/app/shell"
+import { Eyebrow, Loading, Notice, Shell, Steps, useMember } from "@/components/app/shell"
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
 import { Label } from "@/components/ui/label"
@@ -52,7 +52,7 @@ function DocketForm({ member }: { member: Member }) {
   const [question, setQuestion] = useState("")
   const [topicText, setTopicText] = useState("")
   const [deadline, setDeadline] = useState("")
-  const [credentialLevel, setCredentialLevel] = useState<CredentialLevel>("proof_of_presence")
+  const [credentialLevel, setCredentialLevel] = useState<CredentialLevel>("soft")
   const [error, setError] = useState("")
   const [busy, setBusy] = useState(false)
 
@@ -120,8 +120,8 @@ function DocketForm({ member }: { member: Member }) {
             onChange={(event) => setCredentialLevel(event.target.value as CredentialLevel)}
             className="h-9 w-full rounded-md border border-input bg-transparent px-3 text-sm"
           >
-            <option value="proof_of_presence">Soft: Proof of Presence</option>
-            <option value="proof_of_human">Strict: Proof of Human</option>
+            <option value="soft">Soft: Selfie Check</option>
+            <option value="strict">Strict: Proof of Human (Orb)</option>
           </select>
         </div>
       </div>
@@ -140,13 +140,18 @@ export default function NewDocketPage() {
     <Shell>
       <Eyebrow>New case</Eyebrow>
       <h1 className="mb-8 font-display text-5xl tracking-tight">Open a docket</h1>
-      {member === undefined && <p className="text-sm text-muted-foreground">Checking your identity…</p>}
+      {member === undefined && <Loading>Checking your identity…</Loading>}
       {member === null && (
         <div className="max-w-lg space-y-4">
           <Notice>Only verified members can open a docket.</Notice>
           <Button asChild className="rounded-full">
-            <Link href="/join">Join first</Link>
+            <Link href="/join?next=/dockets/new">Join or sign in</Link>
           </Button>
+        </div>
+      )}
+      {member && (
+        <div className="mb-8 max-w-xl">
+          <Steps steps={["Sign the creator policy", "Describe the case"]} active={member.canOpenDockets ? 1 : 0} />
         </div>
       )}
       {member && !member.canOpenDockets && <PolicyStep onSigned={refresh} />}

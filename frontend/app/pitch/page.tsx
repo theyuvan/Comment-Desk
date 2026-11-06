@@ -14,7 +14,7 @@ const SLIDES = [
   "Why it's different",
 ]
 
-const API_URL = process.env.NEXT_PUBLIC_API_URL ?? "http://localhost:8787"
+const API_URL = process.env.NEXT_PUBLIC_API_URL ?? ""
 
 export default function PitchPage() {
   const [index, setIndex] = useState(0)

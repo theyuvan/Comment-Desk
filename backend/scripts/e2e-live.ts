@@ -27,12 +27,16 @@ const step = (label: string) => console.log(`\n== ${label}`);
 const hash = (text: string) => keccak256(stringToHex(text));
 const stringify = (value: unknown) => JSON.stringify(value, (_key, item) => (typeof item === "bigint" ? item.toString() : item));
 
-async function call(method: string, path: string, body?: unknown) {
+const cookies = new Map<string, string>();
+
+async function call(method: string, path: string, body?: unknown, actor?: Account) {
   const response = await fetch(`${API}${path}`, {
     method,
-    headers: { "content-type": "application/json" },
+    headers: { "content-type": "application/json", cookie: (actor && cookies.get(actor.address)) ?? "" },
     body: body === undefined ? undefined : stringify(body),
   });
+  const set = response.headers.get("set-cookie");
+  if (actor && set) cookies.set(actor.address, set.split(";")[0]!);
   return { status: response.status, body: (await response.json()) as Record<string, any> };
 }
 
@@ -42,18 +46,19 @@ const sign = (account: Account, primaryType: ActionName, message: Record<string,
 async function join(account: Account, handle: string, subject: string) {
   const issuedAt = BigInt(Date.now());
   const signature = await sign(account, "Join", { handle, policyVersion: "1", issuedAt });
-  return call("POST", "/api/members", { handle, issuedAt, signature, worldProof: { subject } });
+  await call("POST", "/api/policies/join", { handle, issuedAt, signature });
+  const request = await call("POST", "/api/world/requests", { purpose: "join", handle, wallet: account.address }, account);
+  return call("POST", "/api/world/verify/join", { result: { nonce: request.body.rp_context.nonce, subject } }, account);
 }
 
-async function comment(account: Account, docket: Hex, stance: string, authorType: "human" | "agent", topic: string, proof: object = {}) {
-  const issuedAt = BigInt(Date.now());
+async function comment(account: Account, docket: Hex, text: string, authorType: "human" | "agent", topic: string, changedAfterApproval = false) {
   const sentiment = authorType === "human" ? "support" : "oppose";
-  const signature = await sign(account, "SubmitComment", {
-    docket, topic, sentiment, stanceHash: hash(stance), authorType, issuedAt,
-  });
-  return call("POST", `/api/dockets/${docket}/comments`, {
-    topic, sentiment, stance, authorType, issuedAt, signature, worldProof: proof,
-  });
+  if (authorType === "agent") {
+    return call("POST", "/api/dev/agent-confirm", { docketKey: docket, topic, text, sentiment, changedAfterApproval }, account);
+  }
+  const request = await call("POST", "/api/world/requests", { purpose: "comment", docketKey: docket, topic, text, sentiment }, account);
+  if (request.status !== 200) return request;
+  return call("POST", "/api/world/verify/comment", { result: { nonce: request.body.rp_context.nonce } }, account);
 }
 
 async function openDocket(account: Account, label: string, deadline: bigint) {
@@ -61,7 +66,7 @@ async function openDocket(account: Account, label: string, deadline: bigint) {
   const title = "Should the city adopt the truck emissions rule?";
   const question = "The city proposes stricter limits on diesel trucks from 2027. Comment on each topic.";
   const topics = ["emissions", "cost"];
-  const credentialLevel = "proof_of_presence";
+  const credentialLevel = "soft";
   const signature = await sign(account, "OpenDocket", {
     label, title, bodyHash: hash(JSON.stringify({ question, topics })), deadline, credentialLevel, issuedAt,
   });
@@ -98,7 +103,7 @@ const joinedVoter = await join(voter, voterHandle, `human-b-${run}`);
 check("voter joins", joinedVoter.status === 201, joinedVoter.body.ensName);
 check("member name resolves to their wallet", (await addressOf(memberName))?.toLowerCase() === creator.address.toLowerCase());
 const sybil = await join(privateKeyToAccount(generatePrivateKey()), `sybil-${run}`, `human-a-${run}`);
-check("same human, new wallet is refused", sybil.body.error === "human_already_joined");
+check("same human on a new wallet gets their existing name back", sybil.body.returning === true && sybil.body.ensName === memberName);
 
 step("Open a docket (real ENS resolver and EAC roles)");
 const blocked = await openDocket(creator, `early-${run}`, BigInt(Date.now() + 3_600_000));
@@ -120,18 +125,18 @@ await new Promise((resolve) => setTimeout(resolve, 4000));
 
 step("Comments through both gates");
 const human = await comment(voter, docket, "Cleaner air is worth the transition cost.", "human", "emissions");
-check("human comment posts", human.status === 201 && human.body.counted === true, human.body.ensName);
+check("human comment posts", human.status === 200, human.body.ensName);
 const agent = await comment(voter, docket, "My agent drafted this: phase it in over three years.", "agent", "cost");
-check("agent comment posts", agent.status === 201, agent.body.ensName);
+check("agent comment posts", agent.status === 200, agent.body.ensName);
 await new Promise((resolve) => setTimeout(resolve, 4000));
 const extra = await comment(voter, docket, "A second thought on emissions.", "human", "emissions");
-check("second comment on a topic stores but does not count", extra.status === 201 && extra.body.counted === false);
-const mismatch = await comment(voter, docket, "Text the human never approved.", "agent", "emissions", { draftKey: hash("what was really approved") });
-check("changed agent draft is discarded", mismatch.body.error === "world_draft_mismatch");
+check("a second comment on a topic is refused", extra.body.reason === "already_commented");
+const mismatch = await comment(voter, docket, "Text the human never approved.", "agent", "emissions", true);
+check("changed agent draft is discarded", mismatch.body.reason === "draft_changed");
 
 step("ENS names for comments");
 const commentName = human.body.ensName as string;
-await until("comment resolves to its Arkiv entity", () => text(commentName, TEXT_KEYS.arkivKey), (value) => value === human.body.key, 240);
+await until("comment resolves to its Arkiv entity", () => text(commentName, TEXT_KEYS.arkivKey), (value) => value === human.body.commentRef, 240);
 await until("comment names its author", () => text(commentName, TEXT_KEYS.author), (value) => value === `${voterHandle}.commentdesk.eth`, 60);
 const commentRegistry = (await client.readContract({
   address: SEPOLIA.verifiableFactory,
@@ -147,7 +152,7 @@ await until("agent has its own name", () => addressOf(`agent.${voterHandle}.comm
 await until("agent comment names the agent", () => text(agent.body.ensName, TEXT_KEYS.author), (value) => value === `agent.${voterHandle}.commentdesk.eth`, 240);
 
 step("Live tally");
-const tally = await until("tally counts 2 of 3 stored", () => call("GET", `/api/dockets/${docket}/tally`), (value) => value.body.counted === 2 && value.body.stored === 3, 60);
+const tally = await until("tally counts both comments", () => call("GET", `/api/dockets/${docket}/tally`), (value) => value.body.counted === 2 && value.body.stored === 2, 60);
 console.log(stringify(tally.body.topics));
 
 step("Field-scoped moderation on live contracts");
@@ -257,7 +262,7 @@ if (wait > 0) {
   await new Promise((resolve) => setTimeout(resolve, wait));
 }
 const late = await comment(voter, docket, "Too late.", "human", "emissions");
-check("comment after the deadline is refused", late.body.error === "docket_closed");
+check("comment after the deadline is refused", late.body.reason === "docket_closed");
 const ruling = "The rule passes, with a three-year phase-in.";
 const closedAt = BigInt(Date.now());
 const closed = await call("POST", `/api/dockets/${docket}/close`, {
@@ -278,6 +283,6 @@ await until("ENS status shows closed", () => text(docketName, TEXT_KEYS.status),
 step("Result");
 const failures = await call("GET", "/api/ens/failures");
 check("no background failures", (failures.body as unknown as unknown[]).length === 0, stringify(failures.body));
-console.log(stringify({ memberName, docketName, commentName, docket, comment: human.body.key, agentComment: agent.body.key, swarmRef, url: verified.body.url, docketResolver, memberRegistry }));
+console.log(stringify({ memberName, docketName, commentName, docket, comment: human.body.commentRef, agentComment: agent.body.commentRef, swarmRef, url: verified.body.url, docketResolver, memberRegistry }));
 console.log(failed === 0 ? "\nALL PASSED" : `\n${failed} FAILED`);
 process.exit(failed === 0 ? 0 : 1);

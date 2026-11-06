@@ -5,38 +5,33 @@ import { useEffect, useRef, useState } from "react";
 const steps = [
   {
     number: "I",
-    title: "Connect your tools",
-    description: "Integrate with your existing stack in minutes. We support 200+ data sources out of the box.",
-    code: `import { optimus } from '@optimus/core'
+    title: "Join once",
+    description: "Verify with World ID and receive a name you can resolve. One human gets exactly one identity.",
+    code: `await join({ handle: 'maya', worldProof })
 
-optimus.connect({
-  source: 'your-database',
-  sync: true
-})`,
+// One human, one identity
+// maya.commentdesk.eth`,
   },
   {
     number: "II",
-    title: "Build your workflow",
-    description: "Design powerful automations with our visual builder or write code directly.",
-    code: `optimus.workflow('process', {
-  trigger: 'event',
-  actions: [
-    'validate',
-    'transform', 
-    'deliver'
-  ]
-})`,
+    title: "Comment on a docket",
+    description: "Type your own stance, or let your agent draft it and approve the exact words before they post.",
+    code: `await comment(docket, {
+  topic: 'emissions',
+  sentiment: 'support',
+  authorType: 'human',
+})
+
+// comment-1.truck-rule.maya.commentdesk.eth`,
   },
   {
     number: "III",
-    title: "Ship to production",
-    description: "Deploy globally with zero configuration. Your app goes live in under 30 seconds.",
-    code: `optimus.deploy({
-  target: 'production',
-  regions: 'auto'
-})
+    title: "Recount it yourself",
+    description: "Read every comment straight from Arkiv and reproduce the tally, independent of this platform.",
+    code: `npm run recount <docket> <publisher>
 
-// Deployed to 12 regions`,
+// Reads Arkiv directly
+// No Comment Desk server involved`,
   },
 ];
 
@@ -88,7 +83,7 @@ export function HowItWorksSection() {
         <div className="mb-16 lg:mb-24">
           <span className="inline-flex items-center gap-3 text-sm font-mono text-background/50 mb-6">
             <span className="w-8 h-px bg-background/30" />
-            Process
+            How it works
           </span>
           <h2
             className={`text-4xl lg:text-6xl font-display tracking-tight transition-all duration-700 ${
@@ -97,7 +92,7 @@ export function HowItWorksSection() {
           >
             Three steps.
             <br />
-            <span className="text-background/50">Infinite possibilities.</span>
+            <span className="text-background/50">Every one checkable.</span>
           </h2>
         </div>
 
@@ -151,7 +146,7 @@ export function HowItWorksSection() {
                   <div className="w-3 h-3 rounded-full bg-background/20" />
                   <div className="w-3 h-3 rounded-full bg-background/20" />
                 </div>
-                <span className="text-xs font-mono text-background/40">workflow.ts</span>
+                <span className="text-xs font-mono text-background/40">comment-desk.ts</span>
               </div>
 
               {/* Code content */}

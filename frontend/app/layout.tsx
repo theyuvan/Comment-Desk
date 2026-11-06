@@ -21,9 +21,8 @@ const jetbrainsMono = JetBrains_Mono({
 });
 
 export const metadata: Metadata = {
-  title: 'Optimus - Platform to Create',
-  description: 'The creative platform for teams who ship. Build, deploy, and scale with unprecedented velocity.',
-  generator: 'v0.app',
+  title: 'Comment Desk - Public input you can recount',
+  description: 'A platform for verifiable public input. One real human per voice, a published conclusion, and a record anyone can recount.',
 }
 
 export default function RootLayout({

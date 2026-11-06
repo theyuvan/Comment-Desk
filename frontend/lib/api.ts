@@ -21,6 +21,7 @@ export type Health = {
   publisher: Address
   chainId: number
 }
+export type DocketRules = { ensName: string; status: string; credential: string; agents: string }
 export type Stats = { members: number; dockets: number; comments: number; countedComments: number }
 export type Member = {
   key: Hex
@@ -116,6 +117,7 @@ export const api = {
   docket: (key: string) => request<Docket>(`/api/dockets/${key}`),
   comments: (key: string) => request<Comment[]>(`/api/dockets/${key}/comments`),
   tally: (key: string) => request<Tally>(`/api/dockets/${key}/tally`),
+  rules: (key: string) => request<DocketRules>(`/api/dockets/${key}/rules`),
   verifyArchive: (key: string) => request<ArchiveCheck>(`/api/dockets/${key}/archive/verify`),
   member: async (wallet: Address) => {
     try {

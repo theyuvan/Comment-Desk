@@ -1,81 +1,100 @@
 "use client";
 
 import { useEffect, useRef, useState } from "react";
+import { Globe } from "@/components/visuals/globe";
 
 const features = [
   {
     number: "01",
     title: "One human, one voice",
     description: "Every member verifies once with World ID. One person gets one identity and one counted comment per topic.",
-    visual: "deploy",
+    visual: "globe",
   },
   {
     number: "02",
+    title: "Every name is real",
+    description: "ENSv2 decides who can comment, not just our server. A moderator's write to one ENS record can close a docket even if our own database still says open.",
+    visual: "ens",
+  },
+  {
+    number: "03",
     title: "Agents draft, humans approve",
     description: "Your agent can write a comment, but it never posts alone. A fresh confirm is bound to the exact text, so changed words need a new approval.",
     visual: "ai",
   },
   {
-    number: "03",
+    number: "04",
     title: "Recount it yourself",
     description: "The record lives on Arkiv, not in our database. Anyone can re-derive the tally with no account and no trust in our server.",
-    visual: "collab",
+    visual: "arkiv",
   },
   {
-    number: "04",
+    number: "05",
     title: "A case, not a feed",
     description: "A docket has a deadline and a published ruling. When it closes, the full record moves to Swarm as the permanent case file.",
     visual: "security",
   },
 ];
 
-function DeployVisual() {
+function GlobeVisual() {
+  return (
+    <div className="w-32 h-32 lg:w-40 lg:h-40">
+      <Globe seats={14} />
+    </div>
+  );
+}
+
+/** A name resolving down a small ENS tree: root to member to docket. */
+function EnsVisual() {
+  const nodes = [
+    { x: 100, y: 20 },
+    { x: 100, y: 78 },
+    { x: 45, y: 136 },
+    { x: 155, y: 136 },
+  ];
   return (
     <svg viewBox="0 0 200 160" className="w-full h-full">
-      <defs>
-        <clipPath id="deployClip">
-          <rect x="30" y="20" width="140" height="120" rx="4" />
-        </clipPath>
-      </defs>
-      
-      {/* Container */}
-      <rect x="30" y="20" width="140" height="120" rx="4" fill="none" stroke="currentColor" strokeWidth="2" />
-      
-      {/* Animated bars */}
-      <g clipPath="url(#deployClip)">
-        {[0, 1, 2, 3, 4, 5].map((i) => (
-          <rect
-            key={i}
-            x="40"
-            y={35 + i * 16}
-            width="120"
-            height="10"
-            rx="2"
-            fill="currentColor"
-            opacity="0.15"
-          >
-            <animate
-              attributeName="opacity"
-              values="0.15;0.8;0.15"
-              dur="2s"
-              begin={`${i * 0.15}s`}
-              repeatCount="indefinite"
-            />
-            <animate
-              attributeName="width"
-              values="20;120;20"
-              dur="2s"
-              begin={`${i * 0.15}s`}
-              repeatCount="indefinite"
-            />
-          </rect>
-        ))}
-      </g>
-      
-      {/* Progress indicator */}
-      <circle cx="100" cy="155" r="3" fill="currentColor" opacity="0.3">
-        <animate attributeName="opacity" values="0.3;1;0.3" dur="1s" repeatCount="indefinite" />
+      <path d="M100 20 L100 78" fill="none" stroke="currentColor" strokeWidth="2" opacity="0.3" />
+      <path d="M100 78 L45 136 M100 78 L155 136" fill="none" stroke="currentColor" strokeWidth="2" opacity="0.3" />
+
+      {/* A resolution pulse travelling from the root down to a leaf name */}
+      <circle r="4" fill="currentColor">
+        <animateMotion dur="2.2s" repeatCount="indefinite" path="M100,20 L100,78 L45,136" />
       </circle>
+
+      {nodes.map(({ x, y }, i) => (
+        <g key={i}>
+          <circle cx={x} cy={y} r={i === 0 ? 10 : 8} fill={i === 0 ? "currentColor" : "none"} stroke="currentColor" strokeWidth="2" />
+          {i === 0 && <circle cx={x} cy={y} r="18" fill="none" stroke="currentColor" strokeWidth="1" opacity="0.25" />}
+        </g>
+      ))}
+    </svg>
+  );
+}
+
+/** Three linked entities, one query away from anyone's browser. */
+function ArkivVisual() {
+  const rows = [
+    { x: 55, y: 45 },
+    { x: 145, y: 45 },
+    { x: 100, y: 120 },
+  ];
+  const cylinder = (x: number, y: number, filled: boolean) => (
+    <g key={`${x}-${y}`}>
+      {[10, 0, -10].map((dy) => (
+        <ellipse key={dy} cx={x} cy={y + dy} rx="26" ry="8" fill={filled ? "currentColor" : "none"} stroke="currentColor" strokeWidth="1.5" opacity={filled ? 0.9 : 1} />
+      ))}
+    </g>
+  );
+  return (
+    <svg viewBox="0 0 200 160" className="w-full h-full">
+      <path d="M55 45 L100 120 L145 45" fill="none" stroke="currentColor" strokeWidth="1.5" opacity="0.3" />
+      <circle r="3.5" fill="currentColor">
+        <animateMotion dur="1.8s" repeatCount="indefinite" path="M55,45 L100,120 L145,45 L55,45" />
+      </circle>
+      {cylinder(rows[0]!.x, rows[0]!.y, false)}
+      {cylinder(rows[1]!.x, rows[1]!.y, false)}
+      {cylinder(rows[2]!.x, rows[2]!.y, true)}
     </svg>
   );
 }
@@ -146,47 +165,6 @@ function AIVisual() {
   );
 }
 
-function CollabVisual() {
-  return (
-    <svg viewBox="0 0 200 160" className="w-full h-full">
-      {/* User A */}
-      <g>
-        <rect x="30" y="50" width="50" height="60" rx="4" fill="none" stroke="currentColor" strokeWidth="2" />
-        <text x="55" y="85" textAnchor="middle" fontSize="20" fontFamily="monospace" fill="currentColor">A</text>
-        <circle cx="55" cy="35" r="12" fill="none" stroke="currentColor" strokeWidth="2" />
-      </g>
-      
-      {/* User B */}
-      <g>
-        <rect x="120" y="50" width="50" height="60" rx="4" fill="none" stroke="currentColor" strokeWidth="2" />
-        <text x="145" y="85" textAnchor="middle" fontSize="20" fontFamily="monospace" fill="currentColor">B</text>
-        <circle cx="145" cy="35" r="12" fill="none" stroke="currentColor" strokeWidth="2" />
-      </g>
-      
-      {/* Connection */}
-      <line x1="80" y1="80" x2="120" y2="80" stroke="currentColor" strokeWidth="2" strokeDasharray="4 4">
-        <animate attributeName="stroke-dashoffset" values="0;-8" dur="0.5s" repeatCount="indefinite" />
-      </line>
-      
-      {/* Data packet */}
-      <circle r="4" fill="currentColor">
-        <animateMotion dur="1.5s" repeatCount="indefinite">
-          <mpath href="#dataPath" />
-        </animateMotion>
-      </circle>
-      <path id="dataPath" d="M 80 80 L 120 80" fill="none" />
-      
-      {/* Sync indicator */}
-      <g transform="translate(100, 130)">
-        <circle r="6" fill="none" stroke="currentColor" strokeWidth="2">
-          <animate attributeName="r" values="6;10;6" dur="1s" repeatCount="indefinite" />
-          <animate attributeName="opacity" values="1;0.3;1" dur="1s" repeatCount="indefinite" />
-        </circle>
-      </g>
-    </svg>
-  );
-}
-
 function SecurityVisual() {
   return (
     <svg viewBox="0 0 200 160" className="w-full h-full">
@@ -233,16 +211,18 @@ function SecurityVisual() {
 
 function AnimatedVisual({ type }: { type: string }) {
   switch (type) {
-    case "deploy":
-      return <DeployVisual />;
+    case "globe":
+      return <GlobeVisual />;
+    case "ens":
+      return <EnsVisual />;
     case "ai":
       return <AIVisual />;
-    case "collab":
-      return <CollabVisual />;
+    case "arkiv":
+      return <ArkivVisual />;
     case "security":
       return <SecurityVisual />;
     default:
-      return <DeployVisual />;
+      return <GlobeVisual />;
   }
 }
 

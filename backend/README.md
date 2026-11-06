@@ -16,6 +16,7 @@ Then do these by hand:
 3. Fund the ENS operator and moderator with Sepolia ETH. About 0.05 ETH covers setup and a demo.
 
 ```bash
+npm run check              # shows what is ready, never prints a secret
 npm run simulate:ens       # free dry run of the whole ENS flow on real Sepolia state
 npm run setup:ens          # buys commentdesk.eth, deploys its registry and resolver
 npm run smoke:arkiv        # real write and read test of all four entities

@@ -17,7 +17,7 @@ import type {
 import { DOMAIN, TYPES, type ActionName } from "../src/auth.ts";
 import { opId, ownerHash, textHash } from "../src/core.ts";
 import { Desk, docketBodyHash } from "../src/desk.ts";
-import type { Naming } from "../src/ens/naming.ts";
+import type { DocketRecords, DocketRules, Naming } from "../src/ens/naming.ts";
 import type { Archiver } from "../src/swarm.ts";
 
 let sequence = 0;
@@ -102,6 +102,7 @@ export class MemoryNaming implements Naming {
   calls: string[] = [];
 
   wallets = new Map<string, Address>();
+  rules = new Map<string, DocketRules>();
 
   async registerMember(label: string, wallet: Address) {
     this.calls.push(`member:${label}`);
@@ -112,9 +113,14 @@ export class MemoryNaming implements Naming {
   async walletOf(memberName: string) {
     return this.wallets.get(memberName)!;
   }
-  async openDocket({ memberName, label }: { memberName: string; label: string }) {
+  async openDocket({ memberName, label, records }: { memberName: string; label: string; records: DocketRecords }) {
     this.calls.push(`docket:${label}`);
-    return `${label}.${memberName}`;
+    const name = `${label}.${memberName}`;
+    this.rules.set(name, { status: "open", credential: records.credentialLevel, agents: "allowed" });
+    return name;
+  }
+  async docketRules(name: string) {
+    return this.rules.get(name) ?? { status: null, credential: null, agents: null };
   }
   async linkDocket(name: string) {
     this.calls.push(`link:${name}`);
@@ -128,6 +134,8 @@ export class MemoryNaming implements Naming {
   }
   async setDocketStatus(name: string, status: string, by: string) {
     this.calls.push(`status:${name}:${status}:${by}`);
+    const rules = this.rules.get(name);
+    if (rules) this.rules.set(name, { ...rules, status });
   }
   async setDocketArchive(name: string, ref: string) {
     this.calls.push(`archive:${name}:${ref}`);

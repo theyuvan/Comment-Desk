@@ -34,6 +34,9 @@ export type DocketRecords = {
   credentialLevel: string;
 };
 
+/** The live rules of a docket, as its ENS records state them right now. */
+export type DocketRules = { status: string | null; credential: string | null; agents: string | null };
+
 /** Services depend on this, so they can be tested without a network. */
 export interface Naming {
   readonly rootName: string;
@@ -51,11 +54,13 @@ export interface Naming {
   }): Promise<void>;
   ensureAgentName(memberName: string, wallet: Address): Promise<string>;
   walletOf(memberName: string): Promise<Address>;
+  docketRules(docketName: string): Promise<DocketRules>;
   setDocketStatus(docketName: string, status: string, by: "operator" | "moderator"): Promise<void>;
   setDocketArchive(docketName: string, swarmRef: string): Promise<void>;
 }
 
 const ONE_YEAR = 31_536_000n;
+const ENS_UNREADABLE = () => new AppError(503, "ens_unavailable", "ENS can't be read right now, so nothing was posted.");
 const parentOf = (name: string) => name.slice(name.indexOf(".") + 1);
 const labelOf = (name: string) => name.slice(0, name.indexOf("."));
 const setText = (name: string, key: string, value: string) =>
@@ -247,6 +252,7 @@ export class EnsNaming implements Naming {
             setText(name, TEXT_KEYS.deadline, new Date(Number(records.deadline)).toISOString()),
             setText(name, TEXT_KEYS.topics, records.topics.join(",")),
             setText(name, TEXT_KEYS.credential, records.credentialLevel),
+            setText(name, TEXT_KEYS.agents, "allowed"),
             ...CREATOR_DOCKET_KEYS.map((key) => grant(key, wallet)),
             ...OPERATOR_DOCKET_KEYS.map((key) => grant(key, this.operator.address)),
             ...[...new Set(this.moderatorAddresses())].map((moderator) => grant(TEXT_KEYS.status, moderator)),
@@ -325,12 +331,29 @@ export class EnsNaming implements Naming {
 
   /** Arkiv never holds a raw wallet, and ENS already publishes this one. */
   async walletOf(memberName: string): Promise<Address> {
-    const wallet = await this.client.getEnsAddress({
-      name: memberName,
-      universalResolverAddress: SEPOLIA.universalResolver,
-    });
-    if (!wallet) throw new AppError(502, "ens_unresolved", `${memberName} did not resolve.`);
+    const wallet = await this.client
+      .getEnsAddress({ name: memberName, universalResolverAddress: SEPOLIA.universalResolver })
+      .catch(() => {
+        throw ENS_UNREADABLE();
+      });
+    if (!wallet) throw new AppError(403, "ens_unresolved", `${memberName} no longer resolves, so it can't comment.`);
     return wallet;
+  }
+
+  /** Read through the Universal Resolver, the way any wallet or app would see them. */
+  async docketRules(docketName: string): Promise<DocketRules> {
+    const read = (key: string) =>
+      this.client.getEnsText({ name: docketName, key, universalResolverAddress: SEPOLIA.universalResolver });
+    try {
+      const [status, credential, agents] = await Promise.all([
+        read(TEXT_KEYS.status),
+        read(TEXT_KEYS.credential),
+        read(TEXT_KEYS.agents),
+      ]);
+      return { status, credential, agents };
+    } catch {
+      throw ENS_UNREADABLE();
+    }
   }
 
   /** agent.maya.commentdesk.eth: human and agent authorship as two resolvable names. */

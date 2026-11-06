@@ -5,7 +5,7 @@
  *
  *   npx tsx --env-file=.env scripts/e2e-live.ts
  */
-import { createPublicClient, encodeFunctionData, http, keccak256, parseAbi, stringToHex, type Abi, type Address, type Hex } from "viem";
+import { createPublicClient, createWalletClient, encodeFunctionData, http, keccak256, parseAbi, stringToHex, type Abi, type Address, type Hex } from "viem";
 import { generatePrivateKey, privateKeyToAccount } from "viem/accounts";
 import { sepolia } from "viem/chains";
 import { DOMAIN, TYPES, type ActionName } from "../src/auth.ts";
@@ -263,6 +263,27 @@ const repoint = await client
   .then(() => true)
   .catch(() => false);
 check("operator cannot repoint a member's address", !repoint);
+
+step("ENS decides who can comment");
+const gatedAt = BigInt(Date.now() + 3_600_000);
+const gatedDocket = await openDocket(creator, "gate-rule", gatedAt);
+check("second docket opens", gatedDocket.status === 201, stringify(gatedDocket.body));
+const gatedName = gatedDocket.body.ensName as string;
+const rules = await call("GET", `/api/dockets/${gatedDocket.body.key}/rules`);
+check("rules are read from ENS", rules.body.status === "open" && rules.body.agents === "allowed", stringify(rules.body));
+const moderatorWallet = createWalletClient({ account: privateKeyToAccount(moderatorKey), chain: sepolia, transport: http(process.env.SEPOLIA_RPC_URL ?? "https://ethereum-sepolia-rpc.publicnode.com") });
+const gatedResolver = (await client.readContract({
+  address: memberRegistry, abi: userRegistryAbi as Abi, functionName: "getResolver", args: ["gate-rule"],
+})) as Address;
+const moderated = await moderatorWallet.writeContract({
+  address: gatedResolver, abi: resolverAbi as Abi, functionName: "setText", args: [dnsEncode(gatedName), TEXT_KEYS.status, "closed-for-cause"],
+});
+await client.waitForTransactionReceipt({ hash: moderated, timeout: 180_000 });
+await until("the moderator's ENS write is visible", () => call("GET", `/api/dockets/${gatedDocket.body.key}/rules`), (value) => value.body.status === "closed-for-cause", 120);
+const stillOpen = await call("GET", `/api/dockets/${gatedDocket.body.key}`);
+check("Arkiv still says open", stillOpen.body.status === "open");
+const refused = await comment(voter, gatedDocket.body.key as Hex, "This should not post.", "human", "emissions");
+check("the ENS record alone stops the comment", refused.body.reason === "docket_closed" || refused.body.error === "docket_closed", stringify(refused.body));
 
 step("Conclude the case");
 const wait = Number(deadline) - Date.now() + 3000;

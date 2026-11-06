@@ -80,9 +80,9 @@ export function AgentDraftReview({ docketKey }: { docketKey: string }) {
       {active.map((d) => (
         <article key={d.draftKey} className={`draft draft-${d.status}`}>
           <header>
-            <span className="badge badge-agent">Agent draft Â· rev {d.revision}</span>
-            <span className="topic">{d.topic}</span>
-            <code title="sha256 of docket + topic + text: what you approve">#{d.draftHash.slice(0, 12)}</code>
+            <span className="badge badge-agent">Agent draft · rev {d.revision}</span>
+            <span className="topic">{d.topic}</span> <span className="topic">{d.sentiment}</span>
+            <code title="sha256 of docket + topic + position + text: what you approve">#{d.draftHash.slice(0, 12)}</code>
           </header>
           {editing[d.draftKey] !== undefined ? (
             <textarea
@@ -95,7 +95,7 @@ export function AgentDraftReview({ docketKey }: { docketKey: string }) {
           )}
           {d.status === "confirming" ? (
             <p className="countdown">
-              Waiting for your World ID confirm â€” {fmt((d.confirmExpiresAt ?? now) - now)} left, then this draft is discarded.
+              Waiting for your World ID confirm — {fmt((d.confirmExpiresAt ?? now) - now)} left, then this draft is discarded.
             </p>
           ) : (
             <p className="hint">Draft expires in {fmt(d.expiresAt - now)} if not approved.</p>

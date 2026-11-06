@@ -3,7 +3,9 @@ import { hashSignal } from "@worldcoin/idkit-core/hashing";
 import { Nullifier } from "@worldcoin/idkit-core";
 import {
   CREDENTIAL_FOR_LEVEL,
+  SENTIMENTS,
   type HumanVerified,
+  type Sentiment,
   type WorldCredential,
   type WorldRequestDto,
   type WorldRequestInput,
@@ -30,6 +32,15 @@ export function commentAction(docketKey: string, topic: string): string {
 
 export const HANDLE_RE = /^[a-z0-9](?:[a-z0-9-]{1,30}[a-z0-9])$/;
 export const MAX_COMMENT_CHARS = 4000;
+
+/** Checked before a proof is spent. Unset means neutral. */
+export function parseSentiment(value: unknown): Sentiment {
+  if (value === undefined || value === null || value === "") return "neutral";
+  if (!(SENTIMENTS as readonly unknown[]).includes(value)) {
+    throw new GateError("invalid_sentiment", "Position must be support, oppose or neutral.");
+  }
+  return value as Sentiment;
+}
 
 /** v4 identifiers per credential, plus the v3 identifier the ProofOfHuman preset may fall back to. */
 const ACCEPTED_IDENTIFIERS: Record<WorldCredential, { v4: string; v3: string[] }> = {
@@ -76,17 +87,18 @@ export async function createWorldRequest(
     if (!text || text.length > MAX_COMMENT_CHARS) {
       throw new GateError("invalid_text", `Comment must be 1–${MAX_COMMENT_CHARS} characters.`);
     }
+    const sentiment = parseSentiment(input.sentiment);
     req = {
       purpose: "comment",
       action: commentAction(docket.key, input.topic),
-      // Binds the proof to this member and to the exact words being posted.
-      signal: `commentdesk:comment:v1|${memberRef}|${draftHash(docket.key, input.topic, text)}`,
+      // Binds the proof to this member, the exact words and the position being counted.
+      signal: `commentdesk:comment:v2|${memberRef}|${draftHash(docket.key, input.topic, text, sentiment)}`,
       credential: CREDENTIAL_FOR_LEVEL[docket.credentialLevel],
       memberRef,
       docketKey: docket.key,
       topic: input.topic,
       text,
-      sentiment: input.sentiment,
+      sentiment,
     };
     description = `Post your comment on "${docket.title}" (topic: ${input.topic})`;
   }

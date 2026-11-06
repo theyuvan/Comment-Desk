@@ -228,4 +228,25 @@ describe("DeskWorldHost", () => {
     );
     expect(comment).toEqual({ commentRef: expect.any(String), ensName: `comment-1.${docket!.ensName}` });
   });
+
+  it("gives the agent the docket's question to draft against", async () => {
+    const context = api();
+    const { key } = await context.creator(newWallet());
+    const docket = await context.host.getDocket(key);
+    expect(docket?.question).toBeTruthy();
+  });
+
+  it("signs a returning human back in by their join nullifier, minting nothing", async () => {
+    const context = api();
+    const first = newWallet();
+    await context.signJoin(first, "ravi");
+    const member = await context.host.onMemberVerified({ proofRef: "idkit:4:abc", nullifier: "123" }, { handle: "ravi", wallet: first.address });
+
+    // Same human, new passkey and handle, after World's own record was lost.
+    const second = newWallet();
+    await context.signJoin(second, "ravi-two");
+    const again = await context.host.onMemberVerified({ proofRef: "idkit:4:xyz", nullifier: "123" }, { handle: "ravi-two", wallet: second.address });
+    expect(again).toEqual({ memberRef: member.memberRef, ensName: "ravi.commentdesk.eth", returning: true });
+    expect(await context.store.findMemberByEns("ravi-two.commentdesk.eth")).toBeUndefined();
+  });
 });

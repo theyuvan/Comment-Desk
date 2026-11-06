@@ -9,7 +9,7 @@ export function AgentPassResult() {
   const status = params.get("agentpass");
   if (!status) return null;
   if (status === "posted") {
-    return <p className="banner ok">Approved with World ID Agent Pass â€” your agent&apos;s draft was posted, flagged as agent-authored.</p>;
+    return <p className="banner ok">Approved with World ID Agent Pass — your agent&apos;s draft was posted, flagged as agent-authored.</p>;
   }
   return (
     <p className="banner denied" role="alert">

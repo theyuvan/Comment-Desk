@@ -3,11 +3,8 @@ import type { ArkivStore } from "../arkiv/store.ts";
 import type { Desk, VerifiedComment } from "../desk.ts";
 
 /**
- * Implements `WorldGateHost` from shared/src/world-gate.ts on the World branch.
- * World runs every proof check and then calls these three methods, which is the
- * whole join between the two halves. To connect them, replace StubHost with:
- *
- *   host: new DeskWorldHost(desk, store)
+ * Implements `WorldGateHost` from shared/src/world-gate.ts: the whole join between the
+ * World gates and Arkiv/ENS. World runs every proof check and then calls these three methods.
  *
  * The types here are structural, so this file needs no dependency on that package.
  */
@@ -17,7 +14,11 @@ export class DeskWorldHost {
     private readonly store: ArkivStore,
   ) {}
 
-  onMemberVerified(proof: { proofRef: string; nullifier: string }, join: { handle: string; wallet?: string }) {
+  async onMemberVerified(proof: { proofRef: string; nullifier: string }, join: { handle: string; wallet?: string }) {
+    // The join nullifier is one per human. If Arkiv already has it, the World gate's own
+    // record was lost (fresh data dir, new deploy): sign the same human back in, mint nothing.
+    const existing = await this.store.findMemberByNullifier(proof.nullifier);
+    if (existing) return { memberRef: existing.key, ensName: existing.ensName, returning: true };
     return this.desk.joinVerified(proof, join);
   }
 
@@ -33,6 +34,7 @@ export class DeskWorldHost {
     return {
       key: docket.key,
       title: docket.title,
+      question: docket.question,
       topics: docket.topics,
       credentialLevel: docket.credentialLevel === "strict" ? ("strict" as const) : ("soft" as const),
       status: docket.status === "open" ? ("open" as const) : ("closed" as const),

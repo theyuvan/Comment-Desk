@@ -19,6 +19,18 @@ export function assertSlotFree(deps: Deps, s: Pick<CommentSubmission, "memberRef
   }
 }
 
+/**
+ * Keeps the host's own refusal code (e.g. "already_commented", "handle_taken") so the user
+ * sees why. Anything without one is reported as a failed write.
+ */
+function hostRefusal(err: unknown, fallback: string, prefix: string, status: number): GateError {
+  const { code, status: hostStatus, message } = err as { code?: unknown; status?: unknown; message?: string };
+  if (typeof code === "string" && typeof hostStatus === "number" && hostStatus < 500) {
+    return new GateError(code, message ?? code, hostStatus);
+  }
+  return new GateError(fallback, `${prefix}: ${message ?? String(err)}`, status);
+}
+
 /** Claims the member's slot for this topic, hands off to the host, rolls back if the host fails. */
 export async function postComment(
   deps: Deps,
@@ -38,7 +50,7 @@ export async function postComment(
       delete d.commentSlots[key];
     });
     rollback();
-    throw new GateError("post_failed", `Verified, but recording the comment failed: ${(err as Error).message}`, 502);
+    throw hostRefusal(err, "post_failed", "Verified, but recording the comment failed", 502);
   }
 }
 
@@ -57,13 +69,13 @@ export async function submitJoin(
     created = await deps.host.onMemberVerified(proof as HumanVerified & { purpose: "join" }, join);
   } catch (err) {
     releaseNullifier(deps, proof);
-    throw new GateError("join_failed", `Verified, but creating your identity failed: ${(err as Error).message}`, 409);
+    throw hostRefusal(err, "join_failed", "Verified, but creating your identity failed", 502);
   }
   bindNullifierToMember(deps, proof, created.memberRef);
   deps.store.mutate((d) => {
     d.members[created.memberRef] = { memberRef: created.memberRef, ensName: created.ensName };
   });
-  return { ...created, returning: false };
+  return { ...created, returning: created.returning ?? false };
 }
 
 export async function submitHumanComment(deps: Deps, idkitResult: unknown, memberRef: string | null) {
@@ -75,7 +87,7 @@ export async function submitHumanComment(deps: Deps, idkitResult: unknown, membe
     topic: pending.topic!,
     // The text stored when the request was issued — the client can't swap it after proving.
     text: pending.text!,
-    sentiment: pending.sentiment,
+    sentiment: pending.sentiment ?? "neutral",
     authorType: "human",
   };
   return postComment(deps, proof as HumanVerified & { purpose: "comment" }, submission, () =>

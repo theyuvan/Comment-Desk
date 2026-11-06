@@ -1,6 +1,6 @@
 import express, { type NextFunction, type Request, type Response } from "express";
 import { z } from "zod";
-import type { ApiError, SessionDto } from "@commentdesk/shared";
+import { SENTIMENTS, type ApiError, type SessionDto } from "@commentdesk/shared";
 import type { Deps } from "./deps";
 import { GateError } from "./errors";
 import { Sessions } from "./session";
@@ -20,10 +20,10 @@ import { completeAgentConfirm, startAgentConfirm } from "./world/agent-pass";
 
 const requestInput = z.discriminatedUnion("purpose", [
   z.object({ purpose: z.literal("join"), handle: z.string(), wallet: z.string().optional() }),
-  z.object({ purpose: z.literal("comment"), docketKey: z.string(), topic: z.string(), text: z.string(), sentiment: z.string().optional() }),
+  z.object({ purpose: z.literal("comment"), docketKey: z.string(), topic: z.string(), text: z.string(), sentiment: z.enum(SENTIMENTS).optional() }),
 ]);
-const draftInput = z.object({ docketKey: z.string(), topic: z.string(), text: z.string() });
-const textInput = z.object({ text: z.string() });
+const draftInput = z.object({ docketKey: z.string(), topic: z.string(), text: z.string(), sentiment: z.enum(SENTIMENTS).optional() });
+const textInput = z.object({ text: z.string(), sentiment: z.enum(SENTIMENTS).optional() });
 
 /** Optional host capability used by the demo UI to show what was posted. */
 interface ListsComments {
@@ -113,7 +113,8 @@ export function buildApp(deps: Deps) {
   });
   app.patch("/api/agent/drafts/:key", (req, res) => {
     const ref = resolveAgentToken(deps, req.headers.authorization);
-    res.json(toDraftDto(editDraft(deps, ref, req.params.key, textInput.parse(req.body).text, "agent")));
+    const { text, sentiment } = textInput.parse(req.body);
+    res.json(toDraftDto(editDraft(deps, ref, req.params.key, text, "agent", sentiment)));
   });
   app.get("/api/agent/drafts/:key", (req, res) => {
     const ref = resolveAgentToken(deps, req.headers.authorization);
@@ -128,7 +129,8 @@ export function buildApp(deps: Deps) {
   });
   app.patch("/api/drafts/:key", async (req, res) => {
     const ref = await requireMember(req);
-    res.json(toDraftDto(editDraft(deps, ref, req.params.key, textInput.parse(req.body).text, "member")));
+    const { text, sentiment } = textInput.parse(req.body);
+    res.json(toDraftDto(editDraft(deps, ref, req.params.key, text, "member", sentiment)));
   });
   app.delete("/api/drafts/:key", async (req, res) => {
     const ref = await requireMember(req);

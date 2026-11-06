@@ -27,6 +27,7 @@ export interface StubComment {
   topic: string;
   text: string;
   authorType: "human" | "agent";
+  sentiment: string;
   proofRef: string;
   memberEnsName: string;
   createdAt: number;
@@ -110,6 +111,7 @@ export class StubHost implements WorldGateHost {
       topic: s.topic,
       text: s.text,
       authorType: s.authorType,
+      sentiment: s.sentiment,
       proofRef: proof.proofRef,
       memberEnsName: this.members.get(s.memberRef)?.ensName ?? s.memberRef,
       createdAt: Math.floor(Date.now() / 1000),

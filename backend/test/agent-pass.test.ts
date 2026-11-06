@@ -153,3 +153,30 @@ test("agent path DENIED: member can't edit mid-confirm, and a second comment on 
     (e: unknown) => e instanceof GateError && e.reason === "already_commented",
   );
 });
+
+test("agent path: the approved position posts with the draft", async () => {
+  const ctx = makeDeps();
+  const req = await createWorldRequest(ctx.deps, { purpose: "join", handle: "maya" }, null);
+  const member = await submitJoin(ctx.deps, fakeIdkitResult(req, { nullifier: "111" }));
+  const draft = await createDraft(ctx.deps, member.memberRef, {
+    docketKey: "truck-emissions-rule",
+    topic: "enforcement",
+    text: "Fines should scale with fleet size.",
+    sentiment: "support",
+  });
+  assert.equal(draft.sentiment, "support");
+  await startAgentConfirm(ctx.deps, member.memberRef, draft.draftKey);
+  const outcome = await completeAgentConfirm(ctx.deps, callbackUrl({ code: "c", state: ctx.idp.lastAuthorize!.state }), member.memberRef);
+  assert.equal(outcome.ok, true);
+  assert.equal(ctx.host.comments[0].sentiment, "support");
+});
+
+test("agent path DENIED: agent flips only the position after the confirm was issued", async () => {
+  const ctx = await withDraft();
+  const state = await started(ctx);
+  editDraft(ctx.deps, ctx.member.memberRef, ctx.draft.draftKey, ctx.draft.text, "agent", "oppose");
+
+  const outcome = await completeAgentConfirm(ctx.deps, callbackUrl({ code: "c", state }), ctx.member.memberRef);
+  assert.equal(!outcome.ok && outcome.reason, "draft_changed");
+  assert.equal(ctx.host.comments.length, 0, "an approval for one position can't post the other");
+});

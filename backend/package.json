@@ -16,6 +16,7 @@
     "probe:arkiv": "tsx scripts/probe-arkiv.ts",
     "check": "tsx scripts/check-setup.ts",
     "dev:memory": "tsx watch scripts/dev-memory.ts",
+    "dev:memory:world": "tsx watch --env-file=.env scripts/dev-memory.ts",
     "emancipate:ens": "tsx --env-file=.env scripts/emancipate-ens.ts",
     "agent": "tsx scripts/agent.ts"
   },

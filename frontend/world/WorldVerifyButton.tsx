@@ -9,8 +9,8 @@ import { explain } from "./reasons";
 const CREDENTIAL_LABEL = { proof_of_human: "Proof of Human (Orb)", selfie: "Selfie Check" } as const;
 
 /**
- * One World ID (IDKit 4) check. The backend issues the request â€” action, signal,
- * credential and a signed rp_context â€” and validates the result. This component only
+ * One World ID (IDKit 4) check. The backend issues the request — action, signal,
+ * credential and a signed rp_context — and validates the result. This component only
  * carries the proof between World App and the backend; it never decides anything.
  */
 export function WorldVerifyButton<T>({
@@ -67,7 +67,7 @@ export function WorldVerifyButton<T>({
   return (
     <div className="world-verify">
       <button className="btn btn-world" onClick={begin} disabled={disabled || busy || open}>
-        {busy ? "Preparingâ€¦" : label}
+        {busy ? "Preparing…" : label}
       </button>
       {request && (
         <p className="hint">

@@ -11,7 +11,7 @@ const schema = z.object({
   SESSION_SECRET: z.string().min(32, "SESSION_SECRET must be at least 32 chars"),
   DATA_FILE: z.string().default("data/world-gate.json"),
 
-  // IDKit 4 â€” Developer Portal (developer.world.org) app + RP.
+  // IDKit 4 — Developer Portal (developer.world.org) app + RP.
   WORLD_ID_APP_ID: z.string().regex(/^app_/, "WORLD_ID_APP_ID must start with app_"),
   WORLD_ID_RP_ID: z.string().regex(/^rp_/, "WORLD_ID_RP_ID must start with rp_"),
   WORLD_ID_SIGNING_KEY: z.string().min(1),
@@ -21,7 +21,7 @@ const schema = z.object({
   WORLD_ID_REQUEST_TTL_SECONDS: z.coerce.number().int().positive().default(300),
   WORLD_ID_PORTAL_BASE: z.string().url().default("https://developer.world.org"),
 
-  // World ID Agent Pass â€” World IdP (auth.world.org) OIDC client.
+  // World ID Agent Pass — World IdP (auth.world.org) OIDC client.
   AGENT_PASS_ISSUER: z.string().url().default("https://auth.world.org"),
   AGENT_PASS_CLIENT_ID: z.string().min(1),
   AGENT_PASS_CLIENT_SECRET: z.string().min(1),

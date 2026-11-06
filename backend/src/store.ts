@@ -1,6 +1,6 @@
 import { mkdirSync, readFileSync, renameSync, writeFileSync } from "node:fs";
 import { dirname } from "node:path";
-import type { DraftStatus, WorldCredential } from "@commentdesk/shared";
+import type { DraftStatus, Sentiment, WorldCredential } from "@commentdesk/shared";
 
 /**
  * World-gate state only: one-time request records, replay guards, agent drafts and
@@ -25,7 +25,7 @@ export interface PendingRequest {
   docketKey?: string;
   topic?: string;
   text?: string;
-  sentiment?: string;
+  sentiment?: Sentiment;
 }
 
 export interface NullifierRecord {
@@ -55,6 +55,7 @@ export interface DraftRecord {
   docketKey: string;
   topic: string;
   text: string;
+  sentiment: Sentiment;
   draftHash: string;
   revision: number;
   status: DraftStatus;

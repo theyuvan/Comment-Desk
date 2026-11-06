@@ -3,7 +3,7 @@ import type { Deps } from "../deps";
 import { GateError } from "../errors";
 import { draftHash, randomToken, sha256Hex } from "../crypto";
 import type { DraftRecord } from "../store";
-import { MAX_COMMENT_CHARS } from "./idkit";
+import { MAX_COMMENT_CHARS, parseSentiment } from "./idkit";
 
 /**
  * Agent drafts. A member's own agent (holding a member-issued token) can read a docket
@@ -37,13 +37,14 @@ function cleanText(text: unknown): string {
 export async function createDraft(
   deps: Deps,
   memberRef: string,
-  input: { docketKey: string; topic: string; text: unknown },
+  input: { docketKey: string; topic: string; text: unknown; sentiment?: unknown },
 ): Promise<DraftRecord> {
   const docket = await deps.host.getDocket(input.docketKey);
   if (!docket) throw new GateError("unknown_docket", "No such docket.", 404);
   if (docket.status !== "open" || docket.deadline <= deps.now()) throw new GateError("docket_closed", "Docket is closed.");
   if (!docket.topics.includes(input.topic)) throw new GateError("unknown_topic", "That topic is not on this docket.");
   const text = cleanText(input.text);
+  const sentiment = parseSentiment(input.sentiment);
   const now = deps.now();
   const draft: DraftRecord = {
     draftKey: `draft_${randomToken(12)}`,
@@ -51,7 +52,8 @@ export async function createDraft(
     docketKey: docket.key,
     topic: input.topic,
     text,
-    draftHash: draftHash(docket.key, input.topic, text),
+    sentiment,
+    draftHash: draftHash(docket.key, input.topic, text, sentiment),
     revision: 1,
     status: "pending",
     createdAt: now,
@@ -76,7 +78,14 @@ export function getOwnDraft(deps: Deps, memberRef: string, draftKey: string): Dr
  * makes it fail and the draft is discarded (the "swap the text under an old approval" attack).
  * Members may only edit while nothing is pending.
  */
-export function editDraft(deps: Deps, memberRef: string, draftKey: string, text: unknown, by: "agent" | "member") {
+export function editDraft(
+  deps: Deps,
+  memberRef: string,
+  draftKey: string,
+  text: unknown,
+  by: "agent" | "member",
+  sentiment?: unknown,
+) {
   const draft = getOwnDraft(deps, memberRef, draftKey);
   if (draft.status === "posted" || draft.status === "discarded") {
     throw new GateError(`draft_${draft.status}`, `Draft is already ${draft.status}.`, 409);
@@ -85,10 +94,12 @@ export function editDraft(deps: Deps, memberRef: string, draftKey: string, text:
     throw new GateError("confirm_in_progress", "Finish or cancel the World ID confirm before editing.", 409);
   }
   const clean = cleanText(text);
+  const position = sentiment === undefined ? draft.sentiment : parseSentiment(sentiment);
   return deps.store.mutate((d) => {
     const rec = d.drafts[draftKey];
     rec.text = clean;
-    rec.draftHash = draftHash(rec.docketKey, rec.topic, clean);
+    rec.sentiment = position;
+    rec.draftHash = draftHash(rec.docketKey, rec.topic, clean, position);
     rec.revision += 1;
     return rec;
   });
@@ -128,6 +139,7 @@ export function toDraftDto(d: DraftRecord): DraftDto {
     docketKey: d.docketKey,
     topic: d.topic,
     text: d.text,
+    sentiment: d.sentiment,
     draftHash: d.draftHash,
     revision: d.revision,
     status: d.status,

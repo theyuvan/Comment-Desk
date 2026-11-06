@@ -77,7 +77,8 @@ test("human comment DENIED: expired request, replayed request, wrong environment
   );
 
   const expired = await createWorldRequest(ctx.deps, { ...comment, text: "Late." }, ctx.member.memberRef);
-  ctx.advance(ctx.deps.config.WORLD_ID_REQUEST_TTL_SECONDS + 1);
+  // signRequest stamps expiry with the real clock, which can be a second ahead of the test clock.
+  ctx.advance(ctx.deps.config.WORLD_ID_REQUEST_TTL_SECONDS + 5);
   await assert.rejects(submitHumanComment(ctx.deps, fakeIdkitResult(expired), ctx.member.memberRef), reason("request_expired"));
   await assert.rejects(submitHumanComment(ctx.deps, fakeIdkitResult(expired), ctx.member.memberRef), reason("request_replayed"));
   assert.equal(ctx.host.comments.length, 0);
@@ -110,4 +111,32 @@ test("human comment DENIED: a proof started in one session can't be redeemed by 
   const ctx = await joined();
   const req = await createWorldRequest(ctx.deps, { ...comment, text: "Mine." }, ctx.member.memberRef);
   await assert.rejects(submitHumanComment(ctx.deps, fakeIdkitResult(req), "member_someone_else"), reason("session_mismatch"));
+});
+
+test("human comment: the position is part of what the human proves, and is posted as proven", async () => {
+  const ctx = await joined();
+  const support = await createWorldRequest(ctx.deps, { ...comment, text: "Same words.", sentiment: "support" }, ctx.member.memberRef);
+  const oppose = await createWorldRequest(ctx.deps, { ...comment, text: "Same words.", sentiment: "oppose" }, ctx.member.memberRef);
+  assert.notEqual(support.signal, oppose.signal, "same text with another position is a different proof");
+
+  await submitHumanComment(ctx.deps, fakeIdkitResult(oppose, { nullifier: "333" }), ctx.member.memberRef);
+  assert.equal(ctx.host.comments[0].sentiment, "oppose");
+
+  await assert.rejects(
+    createWorldRequest(ctx.deps, { ...comment, text: "x", sentiment: "maybe" as never }, ctx.member.memberRef),
+    reason("invalid_sentiment"),
+  );
+});
+
+test("host refusals keep their own reason, and the proof is not burned", async () => {
+  const ctx = await joined();
+  ctx.host.onCommentVerified = async () => {
+    throw Object.assign(new Error("This docket is no longer taking comments."), { code: "docket_closed", status: 409 });
+  };
+  const req = await createWorldRequest(ctx.deps, { ...comment, text: "Late." }, ctx.member.memberRef);
+  await assert.rejects(
+    submitHumanComment(ctx.deps, fakeIdkitResult(req, { nullifier: "444" }), ctx.member.memberRef),
+    (err: unknown) => err instanceof GateError && err.reason === "docket_closed" && err.status === 409,
+  );
+  assert.equal(Object.values(ctx.deps.store.data.nullifiers).filter((n) => n.purpose === "comment").length, 0);
 });

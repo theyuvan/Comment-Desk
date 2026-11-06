@@ -1,5 +1,5 @@
 /** Request/response shapes shared by backend routes and frontend World widgets. */
-import type { DocketInfo, WorldCredential } from "./world-gate";
+import type { DocketInfo, Sentiment, WorldCredential } from "./world-gate";
 
 export interface RpContextDto {
   rp_id: string;
@@ -12,7 +12,7 @@ export interface RpContextDto {
 /** POST /api/world/requests — the backend decides action, signal and credential. */
 export type WorldRequestInput =
   | { purpose: "join"; handle: string; wallet?: string }
-  | { purpose: "comment"; docketKey: string; topic: string; text: string; sentiment?: string };
+  | { purpose: "comment"; docketKey: string; topic: string; text: string; sentiment?: Sentiment };
 
 export interface WorldRequestDto {
   app_id: `app_${string}`;
@@ -45,6 +45,7 @@ export interface DraftDto {
   docketKey: string;
   topic: string;
   text: string;
+  sentiment: Sentiment;
   draftHash: string;
   revision: number;
   status: DraftStatus;

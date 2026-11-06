@@ -178,6 +178,7 @@ export async function completeAgentConfirm(
       docketKey: draft.docketKey,
       topic: draft.topic,
       text: draft.text,
+      sentiment: draft.sentiment,
       authorType: "agent",
     });
   } catch (err) {

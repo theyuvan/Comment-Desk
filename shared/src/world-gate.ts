@@ -67,13 +67,19 @@ export interface CommentSubmission {
   topic: string;
   text: string;
   authorType: AuthorType;
-  /** support, oppose or neutral. Agent drafts have none, so the host records neutral. */
-  sentiment?: string;
+  /** The position the human proved or approved. Bound into the World signal / draft hash. */
+  sentiment: Sentiment;
 }
+
+/** A counted comment's position. Part of what the human proves or approves. */
+export type Sentiment = "support" | "oppose" | "neutral";
+export const SENTIMENTS: readonly Sentiment[] = ["support", "oppose", "neutral"];
 
 export interface DocketInfo {
   key: string;
   title: string;
+  /** The question being consulted on, so an agent can draft against it. */
+  question?: string;
   topics: string[];
   credentialLevel: DocketCredentialLevel;
   status: "open" | "closed";
@@ -105,6 +111,8 @@ export interface MemberCreated {
   /** Stable member id used in sessions; the Arkiv `member` entity key. */
   memberRef: string;
   ensName: string;
+  /** The host recognised this human as an existing member, so nothing new was created. */
+  returning?: boolean;
 }
 
 export interface CommentCreated {

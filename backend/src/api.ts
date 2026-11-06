@@ -44,6 +44,17 @@ function memberView(member: MemberRecord) {
   return { key: member.key, ensName: member.ensName, joinedAt: member.joinedAt, proofRef: member.proofRef };
 }
 
+/** Provider messages can contain the keyed RPC URL, so anything that looks like one is removed. */
+function safeReason(error: unknown) {
+  const { name, shortMessage, details } = error as Error & { shortMessage?: string; details?: string };
+  const codes: string[] = [];
+  for (let cause = (error as Error).cause as any; cause; cause = cause.cause) {
+    if (typeof cause.code === "string") codes.push(cause.code);
+  }
+  const reason = [shortMessage, details, ...codes].filter(Boolean).join(" | ").replace(/\S*(https?:|\/ark_|ark_)\S*/g, "[url]");
+  return reason ? `${name}: ${reason.slice(0, 240)}` : name;
+}
+
 export function createApi(deps: {
   desk: Desk;
   store: ArkivStore;
@@ -79,8 +90,7 @@ export function createApi(deps: {
       const fields = error.issues.map((issue) => issue.path.join(".")).join(", ");
       return context.json({ error: "invalid_input", message: `Check: ${fields}` }, 400);
     }
-    // Only the name: provider messages can contain the keyed RPC URL.
-    console.error(`[api] ${context.req.method} ${context.req.path} failed: ${(error as Error).name}`);
+    console.error(`[api] ${context.req.method} ${context.req.path} failed: ${safeReason(error)}`);
     return context.json({ error: "internal", message: "Something went wrong." }, 500);
   });
 

@@ -1,7 +1,7 @@
 "use client";
 
 import { useCallback, useEffect, useState } from "react";
-export type SessionDto = { memberRef: string; ensName: string; worldLinked: boolean };
+import type { SessionDto } from "@commentdesk/shared";
 import { api } from "./api";
 
 export function useSession() {

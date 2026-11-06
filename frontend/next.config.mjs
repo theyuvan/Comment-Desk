@@ -16,6 +16,11 @@ const worldPaths = [
 
 /** @type {import('next').NextConfig} */
 const nextConfig = {
+  transpilePackages: ["@commentdesk/shared"],
+  // Minting ENS names takes real block confirmations, and the proxy's default 30s cuts them off.
+  experimental: {
+    proxyTimeout: 600_000,
+  },
   typescript: {
     ignoreBuildErrors: true,
   },

@@ -11,6 +11,12 @@ import { EnsNaming } from "./ens/naming.ts";
 import { BeeArchiver, GATEWAY_BATCH_ID } from "./swarm.ts";
 import { DeskWorldHost } from "./host/desk-host.ts";
 import { devWorldRoutes } from "./world-dev.ts";
+import { buildApp as buildWorldApp } from "./app.ts";
+import { nowSec } from "./crypto.ts";
+import { WorldStore } from "./store.ts";
+import { loadConfig as loadWorldConfig } from "./world/config.ts";
+import { createWorldIdpClient } from "./world/oidc.ts";
+import { createPortalVerifier } from "./world/portal.ts";
 
 const config = loadConfig();
 
@@ -63,6 +69,17 @@ const app = createApi({
 if (useDevWorld) {
   console.warn("[world] DEV STAND-IN: proofs are not checked. Records are marked dev:");
   app.route("/", devWorldRoutes({ desk, store, host }));
+} else {
+  const worldConfig = loadWorldConfig({ ...process.env, PORT: process.env.WORLD_PORT ?? "4000" });
+  buildWorldApp({
+    config: worldConfig,
+    store: new WorldStore(worldConfig.DATA_FILE),
+    host,
+    portal: createPortalVerifier({ base: worldConfig.WORLD_ID_PORTAL_BASE, rpId: worldConfig.WORLD_ID_RP_ID }),
+    oidc: createWorldIdpClient(worldConfig),
+    now: nowSec,
+    signIn: (input) => desk.signIn(input),
+  }).listen(worldConfig.PORT, () => console.log(`World gates on :${worldConfig.PORT}`));
 }
 
 serve({ fetch: app.fetch, port: config.PORT }, ({ port }) => {

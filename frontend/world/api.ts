@@ -1,4 +1,4 @@
-type ApiError = { error: string; reason: string };
+import type { ApiError } from "@commentdesk/shared";
 
 export class ApiFailure extends Error {
   constructor(

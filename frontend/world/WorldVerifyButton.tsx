@@ -1,27 +1,17 @@
-"use client"
+"use client";
 
-import { useRef, useState } from "react"
-import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle } from "@/components/ui/dialog"
-import { api, ApiFailure } from "./api"
-import { explain } from "./reasons"
+import { useRef, useState } from "react";
+import { IDKitRequestWidget, IDKitErrorCodes, proofOfHuman, selfieCheck, type IDKitResult } from "@worldcoin/idkit";
+import type { WorldRequestDto, WorldRequestInput } from "@commentdesk/shared";
+import { api, ApiFailure } from "./api";
+import { explain } from "./reasons";
 
-export type WorldRequestInput =
-  | { purpose: "join"; handle: string; wallet?: string }
-  | { purpose: "comment"; docketKey: string; topic: string; text: string; sentiment?: string }
-
-type WorldRequestDto = {
-  action_description: string
-  credential: "proof_of_human" | "selfie"
-  rp_context: { nonce: string }
-}
+const CREDENTIAL_LABEL = { proof_of_human: "Proof of Human (Orb)", selfie: "Selfie Check" } as const;
 
 /**
- * STAND-IN. The World branch's frontend/src/world/WorldVerifyButton.tsx replaces
- * this file: it has the same name and the same props, so no screen changes.
- *
- * This version runs the same request and verify calls, and shows a dialog where
- * World App would ask for a proof. It proves nothing, and the backend marks the
- * result "dev:".
+ * One World ID (IDKit 4) check. The backend issues the request â€” action, signal,
+ * credential and a signed rp_context â€” and validates the result. This component only
+ * carries the proof between World App and the backend; it never decides anything.
  */
 export function WorldVerifyButton<T>({
   input,
@@ -30,84 +20,89 @@ export function WorldVerifyButton<T>({
   disabled,
   onVerified,
 }: {
-  input: WorldRequestInput
-  verifyPath: "/api/world/verify/join" | "/api/world/verify/comment"
-  label: string
-  disabled?: boolean
-  onVerified: (result: T) => void
+  input: WorldRequestInput;
+  verifyPath: "/api/world/verify/join" | "/api/world/verify/comment";
+  label: string;
+  disabled?: boolean;
+  onVerified: (result: T) => void;
 }) {
-  const [request, setRequest] = useState<WorldRequestDto | null>(null)
-  const [busy, setBusy] = useState(false)
-  const [denied, setDenied] = useState<string | null>(null)
-  const approving = useRef(false)
-
-  const describe = (error: unknown) => (error instanceof ApiFailure ? explain(error.reason, error.message) : String(error))
+  const [request, setRequest] = useState<WorldRequestDto | null>(null);
+  const [open, setOpen] = useState(false);
+  const [busy, setBusy] = useState(false);
+  const [denied, setDenied] = useState<string | null>(null);
+  const verified = useRef<{ value: T } | null>(null);
 
   async function begin() {
-    setDenied(null)
-    setBusy(true)
+    setDenied(null);
+    setBusy(true);
     try {
-      setRequest(await api<WorldRequestDto>("/api/world/requests", { body: input }))
-    } catch (error) {
-      setDenied(describe(error))
+      // Fresh request every time: each rp_context nonce is single-use.
+      setRequest(await api<WorldRequestDto>("/api/world/requests", { body: input }));
+      setOpen(true);
+    } catch (err) {
+      setDenied(err instanceof ApiFailure ? explain(err.reason, err.message) : String(err));
     } finally {
-      setBusy(false)
+      setBusy(false);
     }
   }
 
-  async function approve() {
-    if (!request || approving.current) return
-    approving.current = true
-    setBusy(true)
+  async function handleVerify(result: IDKitResult) {
     try {
-      const subject = input.purpose === "join" ? input.wallet : undefined
-      const result = await api<T>(verifyPath, { body: { result: { nonce: request.rp_context.nonce, subject } } })
-      setRequest(null)
-      onVerified(result)
-    } catch (error) {
-      setRequest(null)
-      setDenied(describe(error))
-    } finally {
-      approving.current = false
-      setBusy(false)
+      verified.current = { value: await api<T>(verifyPath, { body: { result } }) };
+    } catch (err) {
+      setDenied(err instanceof ApiFailure ? explain(err.reason, err.message) : String(err));
+      throw err; // tells the widget the host rejected it
     }
   }
 
-  function cancel() {
-    setRequest(null)
-    setDenied(explain("cancelled"))
+  function onError(code: IDKitErrorCodes) {
+    setRequest(null);
+    setDenied((prev) =>
+      prev ?? (code === IDKitErrorCodes.Cancelled || code === IDKitErrorCodes.UserRejected
+        ? explain("cancelled")
+        : explain(code, `World ID check failed (${code}).`)),
+    );
   }
 
   return (
     <div className="world-verify">
-      <button type="button" className="btn btn-world" onClick={begin} disabled={disabled || busy}>
-        {busy && !request ? "Preparing…" : label}
+      <button className="btn btn-world" onClick={begin} disabled={disabled || busy || open}>
+        {busy ? "Preparingâ€¦" : label}
       </button>
-      {denied && (
-        <p className="denied" role="alert">
-          {denied}
+      {request && (
+        <p className="hint">
+          Requires <strong>{CREDENTIAL_LABEL[request.credential]}</strong> via World App ({request.environment}).
         </p>
       )}
-      <Dialog open={Boolean(request)} onOpenChange={(open) => !open && cancel()}>
-        <DialogContent>
-          <DialogHeader>
-            <DialogTitle>World ID</DialogTitle>
-            <DialogDescription>{request?.action_description}</DialogDescription>
-          </DialogHeader>
-          <p className="hint">
-            Development stand-in. World App opens here once the real gate is connected, so nothing is verified yet and
-            this record will be labelled as unverified.
-          </p>
-          <DialogFooter>
-            <button type="button" className="btn btn-ghost" onClick={cancel} disabled={busy}>
-              Cancel
-            </button>
-            <button type="button" className="btn btn-world" onClick={approve} disabled={busy}>
-              {busy ? "Verifying…" : "Approve"}
-            </button>
-          </DialogFooter>
-        </DialogContent>
-      </Dialog>
+      {denied && <p className="denied" role="alert">{denied}</p>}
+      {request && (
+        <IDKitRequestWidget
+          open={open}
+          onOpenChange={(o) => {
+            setOpen(o);
+            if (!o) setRequest(null);
+          }}
+          app_id={request.app_id}
+          action={request.action}
+          action_description={request.action_description}
+          rp_context={request.rp_context}
+          environment={request.environment}
+          allow_legacy_proofs={request.allow_legacy_proofs}
+          require_user_presence={request.require_user_presence}
+          preset={
+            request.credential === "selfie"
+              ? selfieCheck({ signal: request.signal })
+              : proofOfHuman({ signal: request.signal })
+          }
+          handleVerify={handleVerify}
+          onSuccess={() => {
+            setRequest(null);
+            if (verified.current) onVerified(verified.current.value);
+            verified.current = null;
+          }}
+          onError={onError}
+        />
+      )}
     </div>
-  )
+  );
 }

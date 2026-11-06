@@ -20,7 +20,7 @@ const REASONS: Record<string, string> = {
   docket_closed: "This docket is closed to new comments.",
   // Agent Pass / agent path
   confirm_expired: "The approval window closed before you finished. The agent's draft was discarded.",
-  draft_changed: "The draft changed after approval was requested. It was discarded — nothing posted.",
+  draft_changed: "The draft changed after approval was requested. It was discarded â€” nothing posted.",
   draft_expired: "The agent's draft expired before anyone approved it.",
   rejected_by_member: "You rejected this draft.",
   not_fresh: "World ID didn't do a fresh check for this approval.",

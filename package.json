@@ -1,0 +1,15 @@
+{
+  "name": "comment-desk",
+  "private": true,
+  "workspaces": [
+    "shared",
+    "backend",
+    "frontend"
+  ],
+  "scripts": {
+    "dev:backend": "npm run dev -w backend",
+    "dev:frontend": "npm run dev -w frontend",
+    "typecheck": "npm run typecheck -w shared && npm run typecheck -w backend && npx -w frontend tsc --noEmit",
+    "test": "npm test -w backend"
+  }
+}

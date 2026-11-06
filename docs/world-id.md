@@ -107,7 +107,7 @@ Agent Pass ([backend/src/world/agent-pass.ts](../backend/src/world/agent-pass.ts
    npm install
    npm run dev -w backend          # Desk API on :8787 (Arkiv, ENS, Swarm), World gates on :4000
    npm run dev -w frontend         # https://localhost:3000 (self-signed; /api routed to both)
-   npm test                        # 58 desk tests + 28 World and agent tests, every denied path included
+   npm test                        # 71 desk/Arkiv/ENS tests + 35 World and agent tests, every denied path included
    ```
    Without the Arkiv/ENS keys yet, run `npm run dev:memory:world -w backend` instead. It uses the
    **real** World gates, with Arkiv, ENS and Swarm in memory, and the app shows a memory banner.

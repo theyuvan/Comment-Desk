@@ -56,10 +56,10 @@ export function Globe({ seats = HUMANS.length, className = "" }: { seats?: numbe
         dark: 1,
         diffuse: 1.6,
         mapSamples: 20000,
-        mapBrightness: 7,
-        baseColor: [0.14, 0.14, 0.14],
+        mapBrightness: 3.2,
+        baseColor: [0.52, 0.52, 0.53],
         markerColor: [1, 1, 1],
-        glowColor: [0.86, 0.85, 0.83],
+        glowColor: [0.7, 0.7, 0.71],
         markerElevation: 0,
         markers: HUMANS.slice(0, seats).map((location) => ({ location, size: 0.035 })),
       })

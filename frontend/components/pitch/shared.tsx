@@ -5,7 +5,7 @@ import { Bot, Lock, ShieldCheck, User, X } from "lucide-react"
 
 export function Big({ children }: { children: ReactNode }) {
   return (
-    <h2 className="font-display leading-[1.02] tracking-tight" style={{ fontSize: "clamp(2.25rem, 5vw, 4.25rem)" }}>
+    <h2 className="font-display leading-[1.02] tracking-tight" style={{ fontSize: "clamp(2.5rem, 5.5vw, 4.75rem)" }}>
       {children}
     </h2>
   )

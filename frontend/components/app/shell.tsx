@@ -5,6 +5,7 @@ import Link from "next/link"
 import { api, ensUrl, request, type Health, type Member } from "@/lib/api"
 import { currentWallet, signAction } from "@/lib/wallet"
 import { ThemeToggle } from "@/components/theme-toggle"
+import { BuiltWith } from "@/components/visuals/sponsor-marks"
 
 const MEMBER_CHANGED = "commentdesk:member-changed"
 
@@ -212,8 +213,9 @@ export function Shell({ children }: { children: ReactNode }) {
       </div>
       <main className="relative z-10 mx-auto w-full max-w-[1000px] flex-1 px-6 py-12">{children}</main>
       <footer className="relative z-10 border-t border-foreground/10">
-        <div className="mx-auto flex max-w-[1000px] flex-wrap items-center justify-between gap-x-6 gap-y-1 px-6 py-5 font-mono text-xs text-muted-foreground">
+        <div className="mx-auto flex max-w-[1000px] flex-wrap items-center justify-between gap-x-6 gap-y-2 px-6 py-5 font-mono text-xs text-muted-foreground">
           <span>Every voice is a real human. Every count is yours to check.</span>
+          <BuiltWith />
           <Link href="/pitch" className="transition-colors hover:text-foreground">
             The pitch
           </Link>

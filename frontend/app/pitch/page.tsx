@@ -3,9 +3,9 @@
 import { useCallback, useEffect, useRef, useState, type ReactNode } from "react"
 import Link from "next/link"
 import {
+  Archive,
   ArrowLeft,
   ArrowRight,
-  Clock,
   Eye,
   Fingerprint,
   GitBranch,
@@ -19,12 +19,13 @@ import {
   type LucideIcon,
 } from "lucide-react"
 import { api, type Health } from "@/lib/api"
-import { EntityGraph, LiveRecount, TamperTest } from "@/components/pitch/arkiv"
+import { ArkivEvidence, EntityGraph, LiveRecount, TamperTest } from "@/components/pitch/arkiv"
 import { EnsGate, NameTree, RoleSwitch } from "@/components/pitch/ens"
 import { BreakIt, CheckLadder, ProofBinding } from "@/components/pitch/world"
 import { Big, Flood } from "@/components/pitch/shared"
 import { Globe } from "@/components/pitch/globe"
 import { ThemeToggle } from "@/components/theme-toggle"
+import { BuiltWith, SponsorMark } from "@/components/visuals/sponsor-marks"
 
 type SponsorId = "arkiv" | "ens" | "world"
 type Slide = { label: string; body: ReactNode }
@@ -216,11 +217,14 @@ export default function PitchPage() {
 
 /* ---------------------------------------------------------------- pieces */
 
-function Title({ tagline, visual }: { tagline: string; visual: ReactNode }) {
+function Title({ tagline, visual, sponsor }: { tagline: string; visual: ReactNode; sponsor: SponsorId }) {
   return (
     <div className="grid items-center gap-8 lg:grid-cols-[1fr_1.2fr]">
       <div>
-        <div className="mb-6 font-mono text-[10px] uppercase tracking-widest text-foreground/50">[ ETHGlobal Mumbai · November 2026 ]</div>
+        <div className="mb-6 flex items-center gap-3 font-mono text-[10px] uppercase tracking-widest text-foreground/50">
+          <SponsorMark id={sponsor} className="h-4 w-4 shrink-0 text-foreground/70" />
+          [ ETHGlobal Mumbai · November 2026 ]
+        </div>
         <h1 className="font-display leading-[0.95] tracking-tight" style={{ fontSize: "clamp(3.25rem, 7vw, 5.75rem)" }}>
           Comment Desk
         </h1>
@@ -309,19 +313,18 @@ function WorldNote() {
 const problem: Slide = { label: "The problem", body: <Flood /> }
 
 const ARKIV_DECK: Slide[] = [
-  { label: "Comment Desk", body: <Title tagline="A count anyone can rebuild." visual={<EntityGraph bare />} /> },
-  problem,
+  { label: "Comment Desk", body: <Title tagline="A count anyone can rebuild." visual={<EntityGraph bare />} sponsor="arkiv" /> },
+  { label: "The problem", body: <ArkivEvidence /> },
   { label: "The record", body: <Stage title="Four entities. One public record."><EntityGraph /></Stage> },
   {
     label: "Key features",
     body: (
-      <Stage title="Four Arkiv features. Four jobs.">
+      <Stage title="Three Arkiv features. Three jobs.">
         <Features
           items={[
             { icon: Eye, name: "Public queries", effect: "Browser recount, no key" },
             { icon: Lock, name: "readonly", effect: "No comment can be edited" },
-            { icon: Fingerprint, name: "$creator", effect: "Copies can't enter a tally" },
-            { icon: Clock, name: "Block expiry", effect: "Records leave on schedule" },
+            { icon: Archive, name: "Arkiv + Swarm", effect: "The ruling, kept forever" },
           ]}
         />
       </Stage>
@@ -349,7 +352,7 @@ const ARKIV_DECK: Slide[] = [
 ]
 
 const ENS_DECK: Slide[] = [
-  { label: "Comment Desk", body: <Title tagline="ENS decides who can speak." visual={<NameTree bare />} /> },
+  { label: "Comment Desk", body: <Title tagline="ENS decides who can speak." visual={<NameTree bare />} sponsor="ens" /> },
   problem,
   { label: "Every name is real", body: <Stage title="Not a row. A name."><NameTree /></Stage> },
   { label: "The gate", body: <Stage title="No ENS, no comment."><EnsGate /></Stage> },
@@ -381,7 +384,7 @@ const ENS_DECK: Slide[] = [
 ]
 
 const WORLD_DECK: Slide[] = [
-  { label: "Comment Desk", body: <Title tagline="One human, one voice." visual={<div className="mx-auto max-w-[480px]"><Globe /></div>} /> },
+  { label: "Comment Desk", body: <Title tagline="One human, one voice." visual={<div className="mx-auto max-w-[480px]"><Globe /></div>} sponsor="world" /> },
   problem,
   { label: "Who wrote it", body: <Stage title="The check matches the author."><CheckLadder /></Stage> },
   { label: "Bound to the words", body: <Stage title="A proof can't carry different text."><ProofBinding /></Stage> },

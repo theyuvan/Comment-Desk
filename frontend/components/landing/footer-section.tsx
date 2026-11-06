@@ -1,6 +1,7 @@
 "use client";
 
 import { AnimatedWave } from "./animated-wave";
+import { SponsorMark } from "@/components/visuals/sponsor-marks";
 
 const footerLinks = {
   Product: [
@@ -9,9 +10,9 @@ const footerLinks = {
     { name: "Pitch", href: "/pitch" },
   ],
   "Built with": [
-    { name: "World ID", href: "https://world.org/world-id" },
-    { name: "ENS", href: "https://ens.domains" },
-    { name: "Arkiv", href: "https://arkiv.network" },
+    { name: "World ID", href: "https://world.org/world-id", mark: "world" as const },
+    { name: "ENS", href: "https://ens.domains", mark: "ens" as const },
+    { name: "Arkiv", href: "https://arkiv.network", mark: "arkiv" as const },
     { name: "Swarm", href: "https://www.ethswarm.org" },
   ],
 };
@@ -50,6 +51,7 @@ export function FooterSection() {
                         href={link.href}
                         className="text-sm text-muted-foreground hover:text-foreground transition-colors inline-flex items-center gap-2"
                       >
+                        {"mark" in link && link.mark && <SponsorMark id={link.mark} className="h-4 w-4 shrink-0" />}
                         {link.name}
                       </a>
                     </li>

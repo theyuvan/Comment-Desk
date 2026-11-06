@@ -125,6 +125,19 @@ export class EnsNaming implements Naming {
     return Boolean(await this.client.getCode({ address }));
   }
 
+  /**
+   * A load-balanced RPC can answer from a node a block behind, where a contract we just
+   * deployed has no code yet. A call to it then simulates fine and estimates ~23k gas, and
+   * the real transaction runs out of gas. Wait until the code is visible first.
+   */
+  private async awaitCode(address: Address) {
+    for (let attempt = 0; attempt < 20; attempt++) {
+      if (await this.isDeployed(address)) return;
+      await new Promise((resolve) => setTimeout(resolve, 1500));
+    }
+    throw new AppError(502, "ens_not_deployed", `No contract at ${address} yet. Nothing was sent.`);
+  }
+
   private async send(
     address: Address,
     abi: unknown,
@@ -132,13 +145,18 @@ export class EnsNaming implements Naming {
     args: unknown[],
     account: PrivateKeyAccount = this.operator,
   ): Promise<Hex> {
+    await this.awaitCode(address);
     let request;
+    let gas: bigint;
     try {
       ({ request } = await this.client.simulateContract({ account, address, abi: abi as Abi, functionName, args }));
+      gas = await this.client.estimateContractGas({ account, address, abi: abi as Abi, functionName, args });
     } catch {
       throw new AppError(502, "ens_rejected", `ENS rejected ${functionName}. Nothing was sent.`);
     }
-    const hash = await this.wallet.writeContract(request);
+    // Headroom, and a floor a stale "no code here" estimate can't slip under. Unused gas is refunded.
+    const limit = gas * 13n / 10n > 120_000n ? gas * 13n / 10n : 120_000n;
+    const hash = await this.wallet.writeContract({ ...request, gas: limit });
     const receipt = await this.client.waitForTransactionReceipt({ hash, timeout: 180_000 });
     if (receipt.status !== "success") {
       throw new AppError(502, "ens_reverted", `ENS ${functionName} reverted: ${hash}`);

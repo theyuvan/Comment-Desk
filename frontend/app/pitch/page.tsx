@@ -19,7 +19,7 @@ import {
   type LucideIcon,
 } from "lucide-react"
 import { api, type Health } from "@/lib/api"
-import { ProblemEvidence, EntityGraph, LiveRecount, TamperTest } from "@/components/pitch/arkiv"
+import { ProblemEvidence, EntityGraph, LiveRecount } from "@/components/pitch/arkiv"
 import { EnsGate, NameTree, RoleSwitch } from "@/components/pitch/ens"
 import { BreakIt, CheckLadder, ProofBinding } from "@/components/pitch/world"
 import { Big } from "@/components/pitch/shared"
@@ -344,7 +344,6 @@ const ARKIV_DECK: Slide[] = [
             ["Expiry", "A cron job, maybe forgotten", "Enforced by the chain"],
           ]}
         />
-        <TamperTest />
       </Stage>
     ),
   },

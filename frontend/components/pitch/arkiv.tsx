@@ -264,71 +264,45 @@ export function LiveRecount() {
   )
 }
 
-/* Three real, documented incidents, not an abstract claim. Big numbers, one line each. */
-
-const INCIDENTS = [
-  {
-    count: "20,000",
-    place: "Southern California",
-    caption: "fake comments, real names, no consent",
-    source: "Canary Media, 16 Mar 2026",
-    href: "https://www.canarymedia.com/articles/heat-pumps/did-fake-comments-sink-socal-clean-heat-rules",
-    image: "/evidence/civiclick-canary-media.png",
-  },
-  {
-    count: "18M of 22M",
-    place: "FCC net neutrality docket",
-    caption: "comments were fake",
-    source: "Stanford / Jeff Kao analysis, 2017",
-    href: "https://en.wikipedia.org/wiki/Restoring_Internet_Freedom_Order",
-    image: "/evidence/fcc-wikipedia.png",
-  },
-  {
-    count: "37,000",
-    place: "Washington State",
-    caption: "fake comments, one night",
-    source: "Techdirt, 10 Mar 2026",
-    href: "https://www.techdirt.com/2026/03/10/37000-fake-ai-comments-mysteriously-oppose-washington-states-effort-to-tax-the-rich/",
-    image: null,
-  },
-] as const
+/* One real, documented incident, not an abstract claim. */
 
 export function ProblemEvidence() {
   return (
-    <div>
-      <Big>Not a claim. Three documented incidents.</Big>
-      <div className="mt-10 grid gap-5 sm:grid-cols-3">
-        {INCIDENTS.map(({ count, place, caption, source, href, image }) => (
-          <a
-            key={place}
-            href={href}
-            target="_blank"
-            rel="noreferrer"
-            className="group block overflow-hidden rounded-2xl bg-foreground/[0.04] transition-colors hover:bg-foreground/[0.07]"
-          >
-            <div className="relative aspect-[16/10] w-full overflow-hidden bg-foreground/10">
-              {image ? (
-                <Image
-                  src={image}
-                  alt={`Source reporting on ${place}`}
-                  fill
-                  sizes="(min-width: 640px) 33vw, 100vw"
-                  className="object-cover object-top grayscale transition-all duration-300 group-hover:grayscale-0"
-                />
-              ) : (
-                <div className="flex h-full items-center justify-center font-mono text-[11px] text-foreground/40">
-                  Source blocks automated screenshots
-                </div>
-              )}
-            </div>
-            <div className="p-5">
-              <div className="font-display text-5xl leading-none tracking-tight">{count}</div>
-              <div className="mt-3 text-base">{caption}</div>
-              <div className="mt-3 font-mono text-[10px] uppercase tracking-widest text-foreground/45">{place} · {source}</div>
-            </div>
-          </a>
-        ))}
+    <div className="grid items-center gap-8 lg:grid-cols-[1fr_1.1fr] lg:gap-14">
+      <div>
+        <Hint>Southern California · CiviClick</Hint>
+        <div className="mt-5 font-display leading-none tracking-tight tabular-nums" style={{ fontSize: "clamp(4rem, 11vw, 8rem)" }}>
+          20,000
+        </div>
+        <p className="mt-4 font-display text-2xl tracking-tight md:text-3xl">AI comments. Real names. No consent.</p>
+        <p className="mt-5 max-w-sm text-sm leading-relaxed text-foreground/60">
+          A regulator rejected clean-air rules after an industry-tied campaign generated 20,000+ comments in residents' names, without asking them.
+        </p>
+        <a
+          href="https://www.canarymedia.com/articles/heat-pumps/did-fake-comments-sink-socal-clean-heat-rules"
+          target="_blank"
+          rel="noreferrer"
+          className="mt-6 inline-flex items-center gap-2 font-mono text-[11px] uppercase tracking-widest text-foreground/50 underline underline-offset-4 hover:text-foreground"
+        >
+          Canary Media, 16 Mar 2026
+        </a>
       </div>
+      <a
+        href="https://www.canarymedia.com/articles/heat-pumps/did-fake-comments-sink-socal-clean-heat-rules"
+        target="_blank"
+        rel="noreferrer"
+        className="group block overflow-hidden rounded-2xl bg-foreground/10"
+      >
+        <div className="relative aspect-[4/3] w-full overflow-hidden">
+          <Image
+            src="/evidence/civiclick-canary-media.png"
+            alt="Canary Media's report on the CiviClick campaign"
+            fill
+            sizes="(min-width: 1024px) 55vw, 100vw"
+            className="object-cover object-top grayscale transition-all duration-300 group-hover:grayscale-0"
+          />
+        </div>
+      </a>
     </div>
   )
 }

@@ -1,0 +1,34 @@
+# dependencies
+node_modules/
+.pnpm-store/
+
+# secrets: never commit
+.env
+.env.*
+!.env.example
+*.pem
+*.key
+keystore/
+
+# local state
+backend/data/
+*.journal
+*.sqlite
+*.db
+
+# build output
+dist/
+build/
+out/
+.next/
+*.tsbuildinfo
+next-env.d.ts
+coverage/
+
+# logs and editor junk
+*.log
+.DS_Store
+Thumbs.db
+.vscode/
+.idea/
+.vercel

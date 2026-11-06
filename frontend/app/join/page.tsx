@@ -10,6 +10,7 @@ import { Label } from "@/components/ui/label"
 import { api, request } from "@/lib/api"
 import { createWallet, currentWallet, signAction, signOut, typedData, unlockWallet, walletKind } from "@/lib/wallet"
 import { WorldVerifyButton } from "@/world/WorldVerifyButton"
+import { ReceiptPanel, ReceiptView, useReceipt } from "@/components/app/receipt"
 
 const STEPS = ["Choose your name", "Create your passkey", "Verify with World ID"]
 
@@ -142,6 +143,37 @@ function SignIn({ onSignedIn }: { onSignedIn: () => void }) {
   )
 }
 
+/** The join's receipt: live while the ENS name is minted, then kept as the record. */
+function NameReceipt({ ensName, creating, failed }: { ensName: string; creating: boolean; failed: boolean }) {
+  const receipt = useReceipt(ensName, { kind: "join", waiting: creating })
+  if (creating) {
+    return (
+      <div className="space-y-3">
+        <p className="text-sm leading-relaxed text-muted-foreground">
+          You&apos;re a member. Your name is now being created on ENS: your own resolver and registry, then the name
+          itself, each a real Sepolia transaction. This takes about 30 seconds to 2 minutes.
+        </p>
+        {receipt ? <ReceiptPanel title="Creating your name on ENS" receipt={receipt} /> : <Loading>Starting…</Loading>}
+      </div>
+    )
+  }
+  return (
+    <>
+      {failed && (
+        <Notice tone="error">Your name couldn&apos;t be created on ENS yet. It&apos;s tried again when you open a docket.</Notice>
+      )}
+      {receipt && (
+        <details className="border border-foreground/15 p-4">
+          <summary className="cursor-pointer text-sm">How your identity was recorded</summary>
+          <div className="mt-3">
+            <ReceiptView receipt={receipt} />
+          </div>
+        </details>
+      )}
+    </>
+  )
+}
+
 export default function JoinPage() {
   const router = useRouter()
   const { member, refresh } = useMember()
@@ -153,11 +185,22 @@ export default function JoinPage() {
     if (member) setAddress(currentWallet()?.address)
   }, [member])
 
+  // After joining, stay to watch the name being minted, then go on.
+  const [joined, setJoined] = useState(false)
   const finished = () => {
+    setJoined(true)
+    refresh()
+  }
+  const signedIn = () => {
     refresh()
     const next = nextPath()
     if (next) router.push(next)
   }
+  useEffect(() => {
+    if (!joined || !member || member.nameStatus === "creating") return
+    const next = nextPath()
+    if (next) router.push(next)
+  }, [joined, member, router])
 
   async function leave() {
     await request("/api/session/logout", { method: "POST", body: {} }).catch(() => {})
@@ -175,11 +218,21 @@ export default function JoinPage() {
           <p className="text-lg">
             <EnsLink name={member.ensName} />
           </p>
+          <p className="text-sm">
+            <Link href={`/names?name=${encodeURIComponent(member.ensName)}`} className="underline underline-offset-4">
+              See your name on ENS: who owns it, its resolver, your agent and your dockets
+            </Link>
+          </p>
           <p className="text-sm leading-relaxed text-muted-foreground">
             {walletKind() === "passkey"
               ? "Secured by your passkey. No key is stored on this device."
               : "This device has no passkey support, so your key is kept in this browser. Clearing site data loses this identity."}
           </p>
+          <NameReceipt
+            ensName={member.ensName}
+            creating={member.nameStatus === "creating"}
+            failed={member.nameStatus === "failed"}
+          />
           {member.proofRef.startsWith("dev:") && (
             <Notice>This identity used the development stand-in for World ID. It is not a verified human.</Notice>
           )}
@@ -205,7 +258,7 @@ export default function JoinPage() {
       {member === null && (
         <>
           <JoinFlow onJoined={finished} onReturning={() => setDropped((count) => count + 1)} />
-          {!currentWallet() && <SignIn onSignedIn={finished} />}
+          {!currentWallet() && <SignIn onSignedIn={signedIn} />}
         </>
       )}
     </Shell>

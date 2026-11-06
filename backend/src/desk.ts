@@ -6,6 +6,7 @@ import type {
   DocketStatus,
   MemberRecord,
 } from "./arkiv/store.ts";
+import { activity, STEP } from "./activity.ts";
 import { recoverSigner } from "./auth.ts";
 import { AppError, SerialQueue, opId, ownerHash, textHash } from "./core.ts";
 import type { Naming } from "./ens/naming.ts";
@@ -87,13 +88,65 @@ export class Desk {
   }
 
   private inBackground(name: string, task: () => Promise<unknown>) {
+    const release = activity.hold();
     const attempt = () => task().then(() => this.backgroundFailures.delete(name));
-    attempt().catch(() =>
-      attempt().catch((error: Error) => {
-        this.backgroundFailures.set(name, error instanceof AppError ? error.code : "ens_failed");
-        console.error(`[ens] records for ${name} failed twice`);
-      }),
-    );
+    attempt()
+      .catch(() => attempt())
+      .then(
+        () => release(),
+        (error: Error) => {
+          this.backgroundFailures.set(name, error instanceof AppError ? error.code : "ens_failed");
+          console.error(`[ens] records for ${name} failed twice`);
+          release(error);
+        },
+      );
+  }
+
+  /** Member names being minted right now. Joining doesn't wait for them. */
+  private readonly namesInProgress = new Map<string, Promise<void>>();
+
+  /** Mints a member's ENS name after they've joined. Its steps land on the join's receipt. */
+  private mintName(handle: string, wallet: Address, ensName: string): Promise<void> {
+    const running = this.namesInProgress.get(ensName);
+    if (running) return running;
+    const release = activity.hold();
+    const attempt = () => this.naming.registerMember(handle, wallet);
+    const task = attempt()
+      .catch(() => attempt())
+      .then(
+        () => {
+          this.backgroundFailures.delete(ensName);
+          release();
+        },
+        (error: Error) => {
+          this.backgroundFailures.set(ensName, error instanceof AppError ? error.code : "ens_failed");
+          console.error(`[ens] name ${ensName} failed twice`);
+          release(error);
+        },
+      )
+      .finally(() => this.namesInProgress.delete(ensName));
+    this.namesInProgress.set(ensName, task);
+    return task;
+  }
+
+  /** "creating" while the member's name is being minted, "failed" if it couldn't be. */
+  nameStatus(ensName: string): "creating" | "failed" | "ready" {
+    if (this.namesInProgress.has(ensName)) return "creating";
+    return this.backgroundFailures.has(ensName) ? "failed" : "ready";
+  }
+
+  private namePending() {
+    return new AppError(409, "name_pending", "Your ENS name is still being created. Try again in a minute.");
+  }
+
+  /** Opening a docket builds under the member's own name, so that name must exist first. */
+  private async requireName(member: MemberRecord, wallet: Address) {
+    if (this.namesInProgress.has(member.ensName)) throw this.namePending();
+    if (await this.naming.hasName(member.ensName)) return;
+    // Not on ENS, e.g. the server restarted while it was being minted: mint it again.
+    const handle = member.ensName.slice(0, -(this.naming.rootName.length + 1));
+    activity.untracked(() => this.mintName(handle, wallet, member.ensName));
+    throw this.namePending();
   }
 
   private async memberFor(wallet: Address): Promise<MemberRecord> {
@@ -124,7 +177,7 @@ export class Desk {
     const ensName = `${handle}.${this.naming.rootName}`;
     await this.assertIdentityFree(owner, ensName);
 
-    return this.identityQueue.run(async () => {
+    return activity.track("policy", ensName, [STEP.policyRecord], () => this.identityQueue.run(async () => {
       const existing = await this.store.findPolicy(owner, "join");
       if (existing) return { key: existing.key, wallet, ensName };
       const key = await this.store.createPolicy({
@@ -136,7 +189,7 @@ export class Desk {
         acceptedAt: BigInt(Date.now()),
       });
       return { key, wallet, ensName };
-    });
+    }));
   }
 
   private async assertIdentityFree(owner: string, ensName: string) {
@@ -158,7 +211,15 @@ export class Desk {
     const owner = ownerHash(wallet);
     const ensName = `${handle}.${this.naming.rootName}`;
 
-    return this.identityQueue.run(async () => {
+    const expected = [
+      STEP.worldHuman,
+      STEP.memberRecord,
+      STEP.resolver(ensName),
+      STEP.registry(ensName),
+      STEP.linked(ensName),
+      STEP.registered(ensName),
+    ];
+    return activity.track("join", ensName, expected, () => this.identityQueue.run(async () => {
       await this.assertIdentityFree(owner, ensName);
       if (await this.store.findMemberByNullifier(proof.nullifier)) {
         throw new AppError(409, "human_already_joined", "This person already has a Comment Desk identity.");
@@ -166,7 +227,9 @@ export class Desk {
       const policy = await this.store.findPolicy(owner, "join");
       if (!policy) throw new AppError(403, "join_policy_required", "Sign the join policy first.");
 
-      await this.naming.registerMember(handle, wallet);
+      // A name already on ENS must be this wallet's (a retried join). Anyone else's is taken.
+      if (await this.naming.hasName(ensName)) await this.naming.registerMember(handle, wallet);
+      activity.note({ label: STEP.worldHuman, chain: "world", ref: proof.proofRef });
       const memberRef = await this.store.createMember({
         opId: opId("member", owner),
         ownerHash: owner,
@@ -176,8 +239,10 @@ export class Desk {
         joinPolicyKey: policy.key,
         joinedAt: BigInt(Date.now()),
       });
+      // Arkiv is the record, so the member exists now. The name follows on ENS in a minute or two.
+      void this.mintName(handle, wallet, ensName);
       return { memberRef, ensName };
-    });
+    }));
   }
 
   /** Proves control of a member's wallet, so a passkey can restore a session on any device. */
@@ -196,7 +261,7 @@ export class Desk {
       input.signature,
     );
     const member = await this.memberFor(wallet);
-    return this.identityQueue.run(async () => {
+    return activity.track("policy", member.ensName, [STEP.policyRecord], () => this.identityQueue.run(async () => {
       const existing = await this.store.findPolicy(member.ownerHash, "docket-creation");
       if (existing) return { key: existing.key };
       const key = await this.store.createPolicy({
@@ -208,7 +273,7 @@ export class Desk {
         acceptedAt: BigInt(Date.now()),
       });
       return { key };
-    });
+    }));
   }
 
   async openDocket(input: {
@@ -252,9 +317,18 @@ export class Desk {
     if (!(await this.store.findPolicy(member.ownerHash, "docket-creation"))) {
       throw new AppError(403, "docket_policy_required", "Sign the docket-creation policy before opening a docket.");
     }
+    await this.requireName(member, wallet);
 
-    return this.identityQueue.run(async () => {
-      const ensName = `${docketLabel}.${member.ensName}`;
+    const ensName = `${docketLabel}.${member.ensName}`;
+    const expected = [
+      STEP.registry(ensName),
+      STEP.linked(ensName),
+      STEP.docketResolver(ensName),
+      STEP.registered(ensName),
+      STEP.docketRecord,
+      STEP.arkivLink(ensName),
+    ];
+    return activity.track("docket", ensName, expected, () => this.identityQueue.run(async () => {
       if (await this.store.findDocketByEns(ensName)) {
         throw new AppError(409, "docket_taken", `${ensName} already exists.`);
       }
@@ -279,7 +353,7 @@ export class Desk {
       });
       this.inBackground(ensName, () => this.naming.linkDocket(ensName, key));
       return { key, ensName };
-    });
+    }));
   }
 
   /**
@@ -287,6 +361,11 @@ export class Desk {
    * to these exact words, so nothing here can change them.
    */
   async postVerifiedComment(proof: { proofRef: string }, input: VerifiedComment) {
+    const world = proof.proofRef.startsWith("agentpass:") ? STEP.worldAgent : STEP.worldHuman;
+    return activity.track("comment", input.docketKey, [world, STEP.commentRecord], () => this.recordComment(proof, input, world));
+  }
+
+  private async recordComment(proof: { proofRef: string }, input: VerifiedComment, world: string) {
     requireText(input.text, MAX_STANCE_BYTES, "Comment");
     const sentiment = input.sentiment ?? "neutral";
     if (!(SENTIMENTS as readonly string[]).includes(sentiment)) {
@@ -300,6 +379,9 @@ export class Desk {
     const op = opId("comment", proof.proofRef);
     const repeat = await this.store.findCommentByOp(op);
     if (repeat) return { commentRef: repeat.key, ensName: repeat.ensName, counted: repeat.ordinal === 1 };
+    activity.note({ label: world, chain: "world", ref: proof.proofRef });
+    // A member who just joined may still have their name being minted; it resolves when that's done.
+    await this.namesInProgress.get(member.ensName);
 
     // ENS decides before Arkiv records anything: the docket's rules, the
     // member's name, and for an agent, its own name.
@@ -337,6 +419,7 @@ export class Desk {
       this.docketCounts.set(docket.key, number);
       return { commentRef, ensName, authorEns, counted: prior === 0 };
     });
+    activity.rename(posted.ensName, [world, STEP.commentRecord, STEP.registered(posted.ensName), STEP.records(posted.ensName)]);
 
     // Arkiv is the record. The comment's own name follows without holding the response open.
     this.inBackground(posted.ensName, async () => {
@@ -411,10 +494,15 @@ export class Desk {
     if (BigInt(Date.now()) < docket.deadline) {
       throw new AppError(409, "deadline_not_reached", "The ruling can be published after the deadline.");
     }
+    const expected = [STEP.docketUpdate, STEP.status(docket.ensName, "closed"), STEP.swarmUpload, STEP.swarmPointer(docket.ensName)];
+    return activity.track("ruling", docket.ensName, expected, () => this.recordRuling(docket, input.ruling, rulingHash));
+  }
+
+  private async recordRuling(docket: DocketRecord, ruling: string, rulingHash: Hex) {
     await this.store.patchDocket(docket.key, {
       opId: opId("close", docket.key),
       status: "closed",
-      ruling: input.ruling,
+      ruling,
       rulingHash,
       closedAt: BigInt(Date.now()),
     });
@@ -436,10 +524,15 @@ export class Desk {
     }
     const docket = await this.docketOr404(input.docket);
     if (docket.status !== "open") throw new AppError(409, "docket_closed", "This docket is already closed.");
+    const expected = [STEP.docketUpdate, STEP.status(docket.ensName, "closed-for-cause"), STEP.swarmUpload, STEP.swarmPointer(docket.ensName)];
+    return activity.track("moderation", docket.ensName, expected, () => this.recordModeration(docket, input.reason));
+  }
+
+  private async recordModeration(docket: DocketRecord, reason: string) {
     await this.store.patchDocket(docket.key, {
       opId: opId("moderate", docket.key),
       status: "closed-for-cause",
-      ruling: `Closed for cause: ${input.reason}`,
+      ruling: `Closed for cause: ${reason}`,
       closedAt: BigInt(Date.now()),
     });
     this.inBackground(docket.ensName, () =>
@@ -496,6 +589,7 @@ export class Desk {
         return { swarmRef: bundle.docket.swarmRef, url: this.archiver.urlFor(bundle.docket.swarmRef) };
       }
       const swarmRef = await this.archiver.upload(`${bundle.docket.ensName}.json`, archiveFile(bundle));
+      activity.note({ label: STEP.swarmUpload, chain: "swarm", ref: swarmRef });
       await this.store.patchDocket(key, { opId: opId("archive", key), swarmRef });
       this.inBackground(`${bundle.docket.ensName}#swarm`, () =>
         this.naming.setDocketArchive(bundle.docket.ensName, swarmRef),
@@ -525,6 +619,55 @@ export class Desk {
         file.comments.length === comments.length &&
         file.comments.every((comment) => onArkiv.has(comment.key)),
     };
+  }
+
+  /**
+   * One name in the tree under the root: its live ENS records, the Arkiv record behind it,
+   * and the names directly under it. The ENS app can't list ENSv2 subnames, so this does.
+   */
+  async nameTree(name: string) {
+    const root = this.naming.rootName;
+    if (name !== root && !name.endsWith(`.${root}`)) {
+      throw new AppError(404, "not_comment_desk", `${name} is not under ${root}.`);
+    }
+    const depth = name.split(".").length - root.split(".").length;
+    const kind =
+      depth === 0 ? "root" : depth === 1 ? "member" : depth === 2 ? (name.startsWith("agent.") ? "agent" : "docket") : "comment";
+    const parent = depth === 0 ? null : name.slice(name.indexOf(".") + 1);
+    const info = await this.naming.nameInfo(name);
+
+    let arkivKey: string | null = null;
+    let children: { name: string; kind: string; detail?: string }[] = [];
+    if (kind === "root") {
+      children = (await this.store.listMembers()).map((member) => ({ name: member.ensName, kind: "member" }));
+    } else if (kind === "member") {
+      arkivKey = (await this.store.findMemberByEns(name))?.key ?? null;
+      const dockets = (await this.store.listDockets()).filter(
+        (docket) => docket.ensName.slice(docket.ensName.indexOf(".") + 1) === name,
+      );
+      const agent = `agent.${name}`;
+      // Registered, not just resolvable: the member's resolver holds the agent's record from the start.
+      const hasAgent = await this.naming.hasName(agent).catch(() => false);
+      children = [
+        ...(hasAgent ? [{ name: agent, kind: "agent", detail: "Posts the member's agent-drafted comments" }] : []),
+        ...dockets.map((docket) => ({ name: docket.ensName, kind: "docket", detail: docket.title })),
+      ];
+    } else if (kind === "docket") {
+      const docket = await this.store.findDocketByEns(name);
+      arkivKey = docket?.key ?? null;
+      if (docket) {
+        children = (await this.store.listComments(docket.key)).map((comment) => ({
+          name: comment.ensName,
+          kind: "comment",
+          detail: `${comment.topic} · ${comment.sentiment} · by ${comment.authorEns}`,
+        }));
+      }
+    } else if (kind === "comment") {
+      const docket = parent ? await this.store.findDocketByEns(parent) : undefined;
+      const comment = docket ? (await this.store.listComments(docket.key)).find((item) => item.ensName === name) : undefined;
+      arkivKey = comment?.key ?? null;
+    }
+    return { ...info, kind, parent, arkivKey, nameStatus: kind === "member" ? this.nameStatus(name) : undefined, children };
   }
 
   async stats() {

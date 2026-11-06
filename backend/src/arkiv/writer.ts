@@ -4,9 +4,19 @@ import { createWalletClient } from "@arkiv-network/sdk";
 import { rabdi } from "@arkiv-network/sdk/chains";
 import { http, type Hex, type LocalAccount } from "viem";
 import { getGasPrice } from "viem/actions";
+import { activity, STEP } from "../activity.ts";
 import { AppError, SerialQueue } from "../core.ts";
 import { estimateWrite, publicClientFor, type UnsignedWallet } from "./estimate.ts";
 import { WriteGuard } from "./write-guard.ts";
+
+/** What each kind of write is called on a receipt. */
+const ARKIV_STEP: Record<string, string> = {
+  member: STEP.memberRecord,
+  policy_acceptance: STEP.policyRecord,
+  docket: STEP.docketRecord,
+  docket_patch: STEP.docketUpdate,
+  comment: STEP.commentRecord,
+};
 
 type Phase = "submitting" | "confirmed" | "uncertain" | "acknowledged";
 type JournalEntry = { opId: Hex; kind: string; phase: Phase; nonce?: number; txHash?: string; at: number };
@@ -133,6 +143,8 @@ export class ArkivWriter {
         throw new AppError(502, "arkiv_write_reverted", "Arkiv reverted this write.");
       }
       this.journal.append({ ...op, phase: "confirmed", nonce: params.nonce, txHash: result.txHash });
+      const entityKey = (result as { entityKey?: string }).entityKey;
+      activity.note({ label: ARKIV_STEP[op.kind] ?? `${op.kind} written to Arkiv`, chain: "arkiv", tx: result.txHash, entityKey });
       return result;
     });
   }

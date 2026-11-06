@@ -15,6 +15,27 @@ import { AgentDraftReview } from "@/world/AgentDraftReview"
 import { AgentInterview } from "@/world/AgentInterview"
 import { AgentPassResult } from "@/world/AgentPassResult"
 import { WorldVerifyButton } from "@/world/WorldVerifyButton"
+import { ReceiptPanel, ReceiptView, useReceipt } from "@/components/app/receipt"
+
+/** The live record of a comment just posted: Arkiv first, then its ENS name. */
+function CommentReceipt({ name }: { name: string }) {
+  const receipt = useReceipt(name, { kind: "comment", waiting: true })
+  return receipt ? <ReceiptPanel title={`How ${name} was recorded`} receipt={receipt} /> : null
+}
+
+/** How the docket itself was recorded, if this server opened it. */
+function DocketReceipt({ name }: { name: string }) {
+  const receipt = useReceipt(name, { kind: "docket" })
+  if (!receipt) return null
+  return (
+    <details className="border border-foreground/15 p-4 text-sm">
+      <summary className="cursor-pointer">How this docket was recorded</summary>
+      <div className="mt-3">
+        <ReceiptView receipt={receipt} />
+      </div>
+    </details>
+  )
+}
 
 const SENTIMENTS = ["support", "oppose", "neutral"] as const
 
@@ -57,7 +78,9 @@ function Composer({ docket, comments, member, onPosted }: { docket: Docket; comm
   const [sentiment, setSentiment] = useState<(typeof SENTIMENTS)[number]>("support")
   const [text, setText] = useState("")
   const [posted, setPosted] = useState("")
+  const [postedName, setPostedName] = useState("")
   const [drafted, setDrafted] = useState(0)
+  const naming = member.nameStatus === "creating"
 
   const done = new Set(
     comments.filter((comment) => comment.authorEns === member.ensName || comment.authorEns === `agent.${member.ensName}`).map((comment) => comment.topic),
@@ -72,6 +95,14 @@ function Composer({ docket, comments, member, onPosted }: { docket: Docket; comm
   return (
     <section>
       <h2 className="mb-4 font-display text-2xl tracking-tight">Add your comment</h2>
+      {naming && (
+        <div className="mb-5">
+          <Notice>
+            Your name {member.ensName} is still being created on ENS. Comments are signed by that name, so you can post
+            in a moment. This page updates by itself.
+          </Notice>
+        </div>
+      )}
       <div className="mb-5 grid grid-cols-2 border border-foreground/15 text-sm" role="tablist" aria-label="Who wrote this comment">
         {(["human", "agent"] as const).map((item) => (
           <button
@@ -129,13 +160,15 @@ function Composer({ docket, comments, member, onPosted }: { docket: Docket; comm
             />
           </div>
           {posted && <p className="ok">{posted}</p>}
+          {postedName && <CommentReceipt name={postedName} />}
           <WorldVerifyButton<{ ensName: string }>
             input={{ purpose: "comment", docketKey: docket.key, topic: selected, text, sentiment }}
             verifyPath="/api/world/verify/comment"
             label="Verify with World ID and post"
-            disabled={!text.trim()}
+            disabled={!text.trim() || naming}
             onVerified={(comment) => {
               setPosted(`Posted as ${comment.ensName}. Its name will appear on ENS in a moment.`)
+              setPostedName(comment.ensName)
               setText("")
               onPosted()
             }}
@@ -306,6 +339,14 @@ function CommentItem({ comment }: { comment: Comment }) {
             <dt className="inline">Proof </dt>
             <dd className="inline">{comment.proofRef}</dd>
           </div>
+          <div>
+            <dt className="inline">Receipt </dt>
+            <dd className="inline">
+              <Link href={`/activity?subject=${encodeURIComponent(comment.ensName)}`} className="underline underline-offset-4">
+                every transaction behind this comment
+              </Link>
+            </dd>
+          </div>
         </dl>
       </details>
     </li>
@@ -368,6 +409,9 @@ export default function DocketPage() {
         <EnsLink name={creatorName} />
         <span aria-hidden="true">›</span>
         <EnsLink name={docket.ensName} />
+        <Link href={`/names?name=${encodeURIComponent(docket.ensName)}`} className="ml-2 underline underline-offset-4 hover:text-foreground">
+          See its ENS records and every comment name
+        </Link>
       </nav>
       <p className="mb-10 max-w-2xl text-lg leading-relaxed">{docket.question}</p>
 
@@ -421,6 +465,7 @@ export default function DocketPage() {
           <Button asChild variant="outline" className="w-full rounded-full">
             <Link href={`/dockets/${docket.key}/recount`}>Recount this yourself</Link>
           </Button>
+          <DocketReceipt name={docket.ensName} />
           {moderatable && <Moderation docket={docket} onClosed={load} />}
         </aside>
       </div>

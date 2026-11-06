@@ -2,6 +2,7 @@ import { Hono } from "hono";
 import { cors } from "hono/cors";
 import { isAddress, isHex, type Address, type Hex } from "viem";
 import { z } from "zod";
+import { activity } from "./activity.ts";
 import type { ArkivStore, CommentRecord, DocketRecord, DocketStatus, MemberRecord } from "./arkiv/store.ts";
 import { DOMAIN, TYPES } from "./auth.ts";
 import { AppError, ownerHash } from "./core.ts";
@@ -97,6 +98,14 @@ export function createApi(deps: {
   app.get("/api/health", (context) => context.json({ ok: true, mode, world, rootName, publisher: publisher.address, chainId: publisher.chainId }));
   app.get("/api/stats", async () => send(await desk.stats()));
   app.get("/api/ens/failures", (context) => context.json(desk.ensFailures()));
+  // One ENS name under the root, with its live records and the names under it.
+  app.get("/api/names/:name", async (context) => send(await desk.nameTree(context.req.param("name").toLowerCase())));
+  // Public receipts: World checks, Arkiv entities and Sepolia transactions, newest first.
+  app.get("/api/activity", (context) => {
+    const subject = context.req.query("subject") || undefined;
+    const limit = Math.min(Number(context.req.query("limit") ?? 50) || 50, 200);
+    return context.json(activity.list({ subject, limit }));
+  });
 
   /** What the frontend signs, and how each hash in it is computed. */
   app.get("/api/typed-data", (context) =>
@@ -128,6 +137,7 @@ export function createApi(deps: {
     if (!member) throw new AppError(404, "not_a_member", "This wallet has not joined.");
     return send({
       ...memberView(member),
+      nameStatus: desk.nameStatus(member.ensName),
       canOpenDockets: Boolean(creatorPolicy),
       isModerator: moderators.includes(wallet.toLowerCase()),
     });

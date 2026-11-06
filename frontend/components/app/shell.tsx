@@ -26,16 +26,22 @@ export function useMember() {
   const [member, setMember] = useState<Member | null>()
   useEffect(() => {
     let active = true
+    let timer: ReturnType<typeof setTimeout> | undefined
     const load = async () => {
+      if (timer) clearTimeout(timer)
       const wallet = currentWallet()
       const found = wallet ? await api.member(wallet.address).catch(() => null) : null
       if (found) await ensureSession().catch(() => {})
-      if (active) setMember(found)
+      if (!active) return
+      setMember(found)
+      // The ENS name is minted after joining; look again until it lands.
+      if (found?.nameStatus === "creating") timer = setTimeout(load, 4000)
     }
     load()
     window.addEventListener(MEMBER_CHANGED, load)
     return () => {
       active = false
+      if (timer) clearTimeout(timer)
       window.removeEventListener(MEMBER_CHANGED, load)
     }
   }, [])
@@ -151,14 +157,21 @@ export function Shell({ children }: { children: ReactNode }) {
             <Link href="/dockets/new" className="transition-colors hover:text-foreground">
               Open a docket
             </Link>
+            <Link href="/names" className="transition-colors hover:text-foreground">
+              ENS names
+            </Link>
+            <Link href="/activity" className="transition-colors hover:text-foreground">
+              On-chain activity
+            </Link>
             {member && (
               <Link href="/agent" className="transition-colors hover:text-foreground">
                 Your agent
               </Link>
             )}
             {member ? (
-              <Link href="/join" className="max-w-[200px] truncate font-mono text-xs text-foreground">
+              <Link href="/join" className="max-w-[240px] truncate font-mono text-xs text-foreground">
                 {member.ensName}
+                {member.nameStatus === "creating" && <span className="text-muted-foreground"> · minting…</span>}
               </Link>
             ) : (
               <Link href="/join" className="text-foreground">

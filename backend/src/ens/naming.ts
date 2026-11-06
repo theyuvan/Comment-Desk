@@ -10,6 +10,7 @@ import {
   type PrivateKeyAccount,
 } from "viem";
 import { sepolia } from "viem/chains";
+import { activity, STEP } from "../activity.ts";
 import { AppError, SerialQueue } from "../core.ts";
 import {
   ADMIN_SET_TEXT,
@@ -37,10 +38,15 @@ export type DocketRecords = {
 /** The live rules of a docket, as its ENS records state them right now. */
 export type DocketRules = { status: string | null; credential: string | null; agents: string | null };
 
+/** What any wallet sees for a name: where it resolves, its resolver, and Comment Desk's records. */
+export type NameInfo = { name: string; address: Address | null; resolver: Address | null; records: Record<string, string> };
+
 /** Services depend on this, so they can be tested without a network. */
 export interface Naming {
   readonly rootName: string;
   registerMember(label: string, wallet: Address): Promise<string>;
+  /** Whether a name exists on ENS yet. */
+  hasName(name: string): Promise<boolean>;
   openDocket(input: { memberName: string; label: string; wallet: Address; records: DocketRecords }): Promise<string>;
   linkDocket(docketName: string, arkivKey: Hex): Promise<void>;
   writeComment(input: {
@@ -55,6 +61,7 @@ export interface Naming {
   ensureAgentName(memberName: string, wallet: Address): Promise<string>;
   walletOf(memberName: string): Promise<Address>;
   docketRules(docketName: string): Promise<DocketRules>;
+  nameInfo(name: string): Promise<NameInfo>;
   setDocketStatus(docketName: string, status: string, by: "operator" | "moderator"): Promise<void>;
   setDocketArchive(docketName: string, swarmRef: string): Promise<void>;
 }
@@ -139,6 +146,7 @@ export class EnsNaming implements Naming {
   }
 
   private async send(
+    label: string,
     address: Address,
     abi: unknown,
     functionName: string,
@@ -159,8 +167,10 @@ export class EnsNaming implements Naming {
     const hash = await this.wallet.writeContract({ ...request, gas: limit });
     const receipt = await this.client.waitForTransactionReceipt({ hash, timeout: 180_000 });
     if (receipt.status !== "success") {
+      activity.note({ label, chain: "sepolia", tx: hash, status: "failed" });
       throw new AppError(502, "ens_reverted", `ENS ${functionName} reverted: ${hash}`);
     }
+    activity.note({ label, chain: "sepolia", tx: hash });
     return hash;
   }
 
@@ -204,14 +214,14 @@ export class EnsNaming implements Naming {
             [setAddress(name, wallet), setAddress(`agent.${name}`, wallet)],
           ],
         });
-        await this.send(SEPOLIA.verifiableFactory, factoryAbi, "deployProxy", [
+        await this.send(STEP.resolver(name), SEPOLIA.verifiableFactory, factoryAbi, "deployProxy", [
           SEPOLIA.permissionedResolverImpl, resolverSalt, init,
         ]);
       }
 
       const registry = await this.deployRegistry(name, root);
 
-      await this.send(root, userRegistryAbi, "register", [
+      await this.send(STEP.registered(name), root, userRegistryAbi, "register", [
         label, wallet, registry, resolver, MEMBER_TOKEN_ROLES, this.expiry(),
       ]);
       return name;
@@ -232,11 +242,11 @@ export class EnsNaming implements Naming {
         functionName: "initialize",
         args: [[{ account: this.operator.address, roleBitmap: OPERATOR_SUBNAME_ROLES }]],
       });
-      await this.send(SEPOLIA.verifiableFactory, factoryAbi, "deployProxy", [
+      await this.send(STEP.registry(name), SEPOLIA.verifiableFactory, factoryAbi, "deployProxy", [
         SEPOLIA.userRegistryImpl, registrySalt(name), init,
       ]);
     }
-    await this.send(registry, userRegistryAbi, "setParent", [parent, labelOf(name)]);
+    await this.send(STEP.linked(name), registry, userRegistryAbi, "setParent", [parent, labelOf(name)]);
     return registry;
   }
 
@@ -288,12 +298,12 @@ export class EnsNaming implements Naming {
         ],
       });
       if (!(await this.isDeployed(resolver))) {
-        await this.send(SEPOLIA.verifiableFactory, factoryAbi, "deployProxy", [
+        await this.send(STEP.docketResolver(name), SEPOLIA.verifiableFactory, factoryAbi, "deployProxy", [
           SEPOLIA.permissionedResolverImpl, salt, init,
         ]);
       }
 
-      await this.send(registry, userRegistryAbi, "register", [
+      await this.send(STEP.registered(name), registry, userRegistryAbi, "register", [
         label, wallet, commentRegistry, resolver, MEMBER_TOKEN_ROLES, this.expiry(),
       ]);
       return name;
@@ -318,7 +328,7 @@ export class EnsNaming implements Naming {
   linkDocket(docketName: string, arkivKey: Hex): Promise<void> {
     return this.queue.run(async () => {
       const resolver = await this.docketResolver(docketName);
-      await this.send(resolver, resolverAbi, "setText", [dnsEncode(docketName), TEXT_KEYS.arkivKey, arkivKey]);
+      await this.send(STEP.arkivLink(docketName), resolver, resolverAbi, "setText", [dnsEncode(docketName), TEXT_KEYS.arkivKey, arkivKey]);
     });
   }
 
@@ -337,11 +347,11 @@ export class EnsNaming implements Naming {
       const label = labelOf(input.commentName);
       // Owned by its author, with no roles: it cannot be transferred, changed or deleted.
       if ((await this.ownerOf(registry, label)) === zeroAddress) {
-        await this.send(registry, userRegistryAbi, "register", [
+        await this.send(STEP.registered(input.commentName), registry, userRegistryAbi, "register", [
           label, input.wallet, zeroAddress, resolver, 0n, this.expiry(),
         ]);
       }
-      await this.send(resolver, resolverAbi, "multicall", [
+      await this.send(STEP.records(input.commentName), resolver, resolverAbi, "multicall", [
         [
           setText(input.commentName, TEXT_KEYS.arkivKey, input.arkivKey),
           setText(input.commentName, TEXT_KEYS.author, input.authorEns),
@@ -350,6 +360,30 @@ export class EnsNaming implements Naming {
         ],
       ]);
     });
+  }
+
+  /** Read through the Universal Resolver, so it shows exactly what a wallet or the ENS app would. */
+  async nameInfo(name: string): Promise<NameInfo> {
+    const universalResolverAddress = SEPOLIA.universalResolver;
+    const [address, resolver] = await Promise.all([
+      this.client.getEnsAddress({ name, universalResolverAddress }).catch(() => null),
+      this.client.getEnsResolver({ name, universalResolverAddress }).catch(() => null),
+    ]);
+    const records: Record<string, string> = {};
+    await Promise.all(
+      Object.values(TEXT_KEYS).map(async (key) => {
+        const value = await this.client.getEnsText({ name, key, universalResolverAddress }).catch(() => null);
+        if (value) records[key] = value;
+      }),
+    );
+    return { name, address: address ?? null, resolver: resolver ?? null, records };
+  }
+
+  /** Whether a name is registered yet, read straight from its parent's registry. */
+  async hasName(name: string): Promise<boolean> {
+    const registry = await this.registryOf(parentOf(name));
+    if (!(await this.isDeployed(registry))) return false;
+    return (await this.ownerOf(registry, labelOf(name))) !== zeroAddress;
   }
 
   /** Arkiv never holds a raw wallet, and ENS already publishes this one. */
@@ -392,7 +426,7 @@ export class EnsNaming implements Naming {
           functionName: "getResolver",
           args: [labelOf(memberName)],
         })) as Address;
-        await this.send(registry, userRegistryAbi, "register", [
+        await this.send(STEP.registered(name), registry, userRegistryAbi, "register", [
           "agent", wallet, zeroAddress, resolver, 0n, this.expiry(),
         ]);
       }
@@ -405,14 +439,14 @@ export class EnsNaming implements Naming {
       const account = by === "moderator" ? this.options.moderator : this.operator;
       if (!account) throw new AppError(503, "moderator_key_missing", "No moderator key is configured.");
       const resolver = await this.docketResolver(docketName);
-      await this.send(resolver, resolverAbi, "setText", [dnsEncode(docketName), TEXT_KEYS.status, status], account);
+      await this.send(STEP.status(docketName, status), resolver, resolverAbi, "setText", [dnsEncode(docketName), TEXT_KEYS.status, status], account);
     });
   }
 
   setDocketArchive(docketName: string, swarmRef: string): Promise<void> {
     return this.queue.run(async () => {
       const resolver = await this.docketResolver(docketName);
-      await this.send(resolver, resolverAbi, "setText", [dnsEncode(docketName), TEXT_KEYS.swarm, swarmRef]);
+      await this.send(STEP.swarmPointer(docketName), resolver, resolverAbi, "setText", [dnsEncode(docketName), TEXT_KEYS.swarm, swarmRef]);
     });
   }
 }

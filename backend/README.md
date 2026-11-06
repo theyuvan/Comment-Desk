@@ -43,6 +43,7 @@ Set `NEXT_PUBLIC_API_URL` when the API is not on `http://localhost:8787`, and ad
 | --- | --- | --- |
 | `npm test` | Product rules and denial paths, using real wallet signatures | Nothing |
 | `npm run simulate:ens` | Every ENS call, role and denial against live Sepolia contracts | Nothing |
+| `npx tsx scripts/probe-ens.ts <docketName>` | What ENS says about a live docket and its first comment | Nothing |
 | `npm run probe:arkiv` | Query syntax against live Rabdi | Nothing |
 | `npm run smoke:arkiv` | Real Arkiv writes, reads, patch, expiry, public recount | Key and test GLM |
 | `npx tsx --env-file=.env scripts/e2e-live.ts` | The whole journey on real Arkiv, ENS and Swarm, with denied paths. Run it with the server up and `WORLD_GATE=dev` | Everything funded |

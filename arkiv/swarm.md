@@ -13,10 +13,10 @@
 
 | | |
 | --- | --- |
-| Arkiv docket entity | `0x5ecc07dbda3368259f599e2ab4a9c1d027c654df0c3b7be6d5145aa4ed2e6050` |
-| Swarm reference | `80e7973c3829b8398f334e6c2ce736ca925e90a7966f57c95d491037fbe7a741` |
-| Open the file | <https://api.gateway.ethswarm.org/bzz/80e7973c3829b8398f334e6c2ce736ca925e90a7966f57c95d491037fbe7a741/> |
-| ENS name holding the same pointer | `truck-rule.maya-mw4qy8r5.commentdesk.eth` |
+| Arkiv docket entity | `0x37655b1db9c5de5156a2700e4e7eb0ff5407a6edef70258c45d386855f2d7e14` |
+| Swarm reference | `9e851f482f84d66dd8c677a7fde343e4e0806263b3e52d8e243ce37e06a121e6` |
+| Open the file | <https://api.gateway.ethswarm.org/bzz/9e851f482f84d66dd8c677a7fde343e4e0806263b3e52d8e243ce37e06a121e6/> |
+| ENS name holding the same pointer | `truck-rule.maya-mw4s7mf5.commentdesk.eth` |
 
 The Arkiv entity comes from a test run whose World proofs used a development stand-in, and its comments are marked `dev:`. The entity expires about 7 days after its deadline.
 
@@ -36,7 +36,7 @@ The Arkiv entity comes from a test run whose World proofs used a development sta
 Read an existing file with no setup:
 
 ```bash
-curl https://api.gateway.ethswarm.org/bzz/80e7973c3829b8398f334e6c2ce736ca925e90a7966f57c95d491037fbe7a741/
+curl https://api.gateway.ethswarm.org/bzz/9e851f482f84d66dd8c677a7fde343e4e0806263b3e52d8e243ce37e06a121e6/
 ```
 
 You should see JSON with the ruling "The rule passes, with a three-year phase-in.", a tally counting 2 of 3 comments, and all 3 comments.

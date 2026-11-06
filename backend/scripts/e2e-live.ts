@@ -115,7 +115,7 @@ const opened = await openDocket(creator, "truck-rule", deadline);
 check("docket opens", opened.status === 201, stringify(opened.body));
 const docket = opened.body.key as Hex;
 const docketName = opened.body.ensName as string;
-check("docket status resolves on ENS", (await text(docketName, TEXT_KEYS.status)) === "open");
+await until("docket status resolves on ENS", () => text(docketName, TEXT_KEYS.status), (value) => value === "open", 60);
 await new Promise((resolve) => setTimeout(resolve, 4000));
 
 step("Comments through both gates");
@@ -132,7 +132,7 @@ check("changed agent draft is discarded", mismatch.body.error === "world_draft_m
 step("ENS names for comments");
 const commentName = human.body.ensName as string;
 await until("comment resolves to its Arkiv entity", () => text(commentName, TEXT_KEYS.arkivKey), (value) => value === human.body.key, 240);
-check("comment names its author", (await text(commentName, TEXT_KEYS.author)) === `${voterHandle}.commentdesk.eth`);
+await until("comment names its author", () => text(commentName, TEXT_KEYS.author), (value) => value === `${voterHandle}.commentdesk.eth`, 60);
 const commentRegistry = (await client.readContract({
   address: SEPOLIA.verifiableFactory,
   abi: parseAbi(["function predictProxyAddress(address deployer, uint256 salt) view returns (address)"]),

@@ -422,6 +422,9 @@ We used Claude Code to research the ENSv2 and Arkiv contracts and SDKs, and to w
 - ENS ownership is public, so a member's name links openly to their wallet. The hash stops casual scanning of Arkiv, not someone who starts from an ENS name.
 - One publisher wallet signs every Arkiv entity, so `$creator` proves we published a record, not that a given person wrote it. Authorship rests on the World proof reference and the member's signature, which the backend checks before publishing.
 - Members and policy acceptances last about 182 days, Arkiv's maximum, and Lifetime Extension isn't automated yet.
+- A lost passkey has no recovery path. World ID's one-identity rule also stops that person joining again with a new one.
+- Passkeys belong to one web domain, so a move to a new domain needs a migration plan.
+- A device without the passkey PRF extension falls back to a key kept in that browser, and the app says so.
 - The backend runs as a single process, because Arkiv has no unique constraint and uniqueness checks are serialized in memory.
 - Moderation is minimal in this version — a Moderator can close a docket early, but there's no appeals or dispute process.
 - The analyst insight layer aggregates counts and sentiment but doesn't yet do anything smarter (trend detection, cross-docket analysis) — that's a natural next step, not built in this scope.

@@ -7,11 +7,8 @@ import {
   ArrowRight,
   Clock,
   Eye,
-  FileText,
-  Filter,
   Fingerprint,
   GitBranch,
-  Globe2,
   KeyRound,
   Lock,
   Maximize,
@@ -262,6 +259,40 @@ function Features({ items }: { items: Feature[] }) {
   )
 }
 
+/** A visual comparison, not a wall of text: short labels, two columns of a few words each. */
+function Compare({ against, ours, rows }: { against: string; ours: string; rows: [string, string, string][] }) {
+  return (
+    <div className="overflow-hidden rounded-2xl border border-foreground/10">
+      <div className="grid grid-cols-[1fr_1fr_1fr] bg-foreground/[0.04] font-mono text-[10px] uppercase tracking-widest text-foreground/50 sm:text-[11px]">
+        <div className="p-3 sm:p-4" />
+        <div className="p-3 sm:p-4">{against}</div>
+        <div className="p-3 text-foreground sm:p-4">{ours}</div>
+      </div>
+      {rows.map(([label, theirs, oursValue]) => (
+        <div key={label} className="grid grid-cols-[1fr_1fr_1fr] border-t border-foreground/10">
+          <div className="p-3 font-display text-base leading-tight sm:p-4 sm:text-lg">{label}</div>
+          <div className="p-3 text-xs text-foreground/45 sm:p-4 sm:text-sm">{theirs}</div>
+          <div className="p-3 text-xs font-medium sm:p-4 sm:text-sm">{oursValue}</div>
+        </div>
+      ))}
+    </div>
+  )
+}
+
+/** Icon and name only, no subtext: a quiet reminder of the primitives, next to the table that argues for them. */
+function FeatureStrip({ items }: { items: { icon: LucideIcon; name: string }[] }) {
+  return (
+    <div className="mt-5 flex flex-wrap items-center gap-x-6 gap-y-3 sm:mt-6">
+      {items.map(({ icon: Icon, name }) => (
+        <span key={name} className="inline-flex items-center gap-2 font-mono text-[11px] text-foreground/60">
+          <Icon className="h-4 w-4" strokeWidth={1.5} />
+          {name}
+        </span>
+      ))}
+    </div>
+  )
+}
+
 function WorldNote() {
   const [health, setHealth] = useState<Health>()
   useEffect(() => {
@@ -282,21 +313,36 @@ const ARKIV_DECK: Slide[] = [
   {
     label: "Key features",
     body: (
-      <Stage title="Six Arkiv features. Six jobs.">
+      <Stage title="Four Arkiv features. Four jobs.">
         <Features
           items={[
             { icon: Eye, name: "Public queries", effect: "Browser recount, no key" },
             { icon: Lock, name: "readonly", effect: "No comment can be edited" },
             { icon: Fingerprint, name: "$creator", effect: "Copies can't enter a tally" },
             { icon: Clock, name: "Block expiry", effect: "Records leave on schedule" },
-            { icon: Filter, name: "Indexed filters", effect: "One voice per topic" },
-            { icon: FileText, name: "Bytes columns", effect: "Full comment text" },
           ]}
         />
       </Stage>
     ),
   },
-  { label: "Readonly", body: <Stage title="Try to change a comment."><TamperTest /></Stage> },
+  {
+    label: "Why Arkiv",
+    body: (
+      <Stage title="What Postgres would take away.">
+        <Compare
+          against="Postgres"
+          ours="Arkiv"
+          rows={[
+            ["The count", "Trust the operator", "Anyone rebuilds it"],
+            ["A posted comment", "Admin can rewrite it", "Read-only, even for us"],
+            ["Who published it", "Whatever the row says", "$creator, fixed forever"],
+            ["Expiry", "A cron job, maybe forgotten", "Enforced by the chain"],
+          ]}
+        />
+        <TamperTest />
+      </Stage>
+    ),
+  },
   { label: "Live recount", body: <LiveRecount /> },
 ]
 
@@ -305,24 +351,31 @@ const ENS_DECK: Slide[] = [
   problem,
   { label: "Every name is real", body: <Stage title="Not a row. A name."><NameTree /></Stage> },
   { label: "The gate", body: <Stage title="No ENS, no comment."><EnsGate /></Stage> },
-  { label: "Access control", body: <Stage title="One role. One field."><RoleSwitch /></Stage> },
   {
-    label: "Key features",
+    label: "Why ENSv2",
     body: (
-      <Stage title="ENSv2 doing real work.">
-        <Features
+      <Stage title="Permissions our server can't quietly widen.">
+        <Compare
+          against="A normal platform"
+          ours="Comment Desk on ENSv2"
+          rows={[
+            ["An account", "Bought and sold", "Non-transferable name"],
+            ["A moderator", "Usually full control", "One record, one docket"],
+            ["The agent", "A flag in a database", "Its own resolvable name"],
+            ["The case file", "Gone if the site goes", "Pointer kept on-chain"],
+          ]}
+        />
+        <FeatureStrip
           items={[
-            { icon: GitBranch, name: "Permissioned Registry", effect: "A registry per member and docket" },
-            { icon: KeyRound, name: "Permissioned Resolver", effect: "Each docket holds its own rules" },
-            { icon: ShieldCheck, name: "Enhanced Access Control", effect: "Roles scoped to one record" },
-            { icon: Lock, name: "Non-transferable", effect: "An identity can't be sold" },
-            { icon: UserCheck, name: "Agents as names", effect: "No agent.maya, no agent comment" },
-            { icon: Globe2, name: "Universal Resolver", effect: "Rules read like any wallet would" },
+            { icon: GitBranch, name: "Permissioned Registry" },
+            { icon: KeyRound, name: "Permissioned Resolver" },
+            { icon: ShieldCheck, name: "Enhanced Access Control" },
           ]}
         />
       </Stage>
     ),
   },
+  { label: "Access control", body: <Stage title="One role. One field."><RoleSwitch /></Stage> },
 ]
 
 const WORLD_DECK: Slide[] = [
@@ -331,17 +384,24 @@ const WORLD_DECK: Slide[] = [
   { label: "Who wrote it", body: <Stage title="The check matches the author."><CheckLadder /></Stage> },
   { label: "Bound to the words", body: <Stage title="A proof can't carry different text."><ProofBinding /></Stage> },
   {
-    label: "Key features",
+    label: "Why World",
     body: (
-      <Stage title="World at every gate.">
-        <Features
+      <Stage title="An agent can never post on its own.">
+        <Compare
+          against="One wallet, one vote"
+          ours="Comment Desk with World"
+          rows={[
+            ["A bot farm", "Makes unlimited wallets", "Needs a unique human each"],
+            ["An AI agent", "Posts whatever it wants", "Drafts only, human approves"],
+            ["An old approval", "Often reusable", "Scoped to one exact draft"],
+          ]}
+        />
+        <FeatureStrip
           items={[
-            { icon: ScanFace, name: "Proof of Human", effect: "Strict dockets: Orb" },
-            { icon: UserCheck, name: "Selfie Check", effect: "Soft dockets" },
-            { icon: Fingerprint, name: "Nullifiers", effect: "One voice per topic" },
-            { icon: KeyRound, name: "Server-issued requests", effect: "The client can't change rules" },
-            { icon: ShieldCheck, name: "Agent Pass", effect: "Approve one exact draft" },
-            { icon: Lock, name: "Signal binding", effect: "Proof tied to the text" },
+            { icon: ScanFace, name: "Proof of Human" },
+            { icon: UserCheck, name: "Selfie Check" },
+            { icon: Fingerprint, name: "Nullifiers" },
+            { icon: ShieldCheck, name: "Agent Pass" },
           ]}
         />
       </Stage>

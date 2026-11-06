@@ -1,3 +1,4 @@
+import { readFileSync } from "node:fs";
 import { describe, expect, it } from "vitest";
 import { tally, type TallyComment } from "../src/recount.ts";
 
@@ -51,5 +52,12 @@ describe("tally", () => {
     ];
     expect(tally(docket, comments)).toEqual(tally(docket, [...comments].reverse()));
     expect(tally(docket, comments).topics[0]).toMatchObject({ support: 2, oppose: 0 });
+  });
+});
+
+describe("the browser recount", () => {
+  it("runs the exact same rule as the backend", () => {
+    const read = (path: string) => readFileSync(path, "utf8").split("\r\n").join("\n");
+    expect(read("../frontend/lib/recount.ts")).toBe(read("src/recount.ts"));
   });
 });

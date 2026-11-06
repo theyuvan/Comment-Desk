@@ -126,7 +126,7 @@ export function HeroSection() {
               </Link>
             </Button>
             <Button asChild size="lg" variant="outline" className="h-14 px-8 text-base rounded-full border-foreground/20 hover:bg-foreground/5">
-              <a href="#how-it-works">How it works</a>
+              <Link href="/dockets">Browse dockets</Link>
             </Button>
           </div>
         </div>

@@ -9,6 +9,7 @@
     "start": "next start"
   },
   "dependencies": {
+    "@arkiv-network/sdk": "1.0.1",
     "@hookform/resolvers": "^3.10.0",
     "@radix-ui/react-accordion": "1.2.2",
     "@radix-ui/react-alert-dialog": "1.1.4",
@@ -66,6 +67,7 @@
     "tailwindcss-animate": "^1.0.7",
     "three": "0.183.2",
     "vaul": "^1.1.2",
+    "viem": "^2.57.16",
     "zod": "3.25.76"
   },
   "devDependencies": {

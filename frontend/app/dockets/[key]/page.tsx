@@ -309,7 +309,7 @@ export default function DocketPage() {
           {docket.phase === "open" && member === null && (
             <Notice>
               <Link href="/join" className="underline underline-offset-4">
-                Join
+                Join or sign in
               </Link>{" "}
               to comment. One person, one counted voice per topic.
             </Notice>

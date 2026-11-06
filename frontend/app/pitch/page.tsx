@@ -306,8 +306,8 @@ function GatesSlide() {
 
 function NamesSlide() {
   const chain = [
-    ["maya.commentdesk.eth", "the member", "Minted once per verified human"],
-    ["truck-rule.maya.commentdesk.eth", "their docket", "Its own Permissioned Resolver, owned by the creator"],
+    ["maya.commentdesk.eth", "the member", "One per verified human, and it can never be sold"],
+    ["truck-rule.maya.commentdesk.eth", "their docket", "Its own Permissioned Resolver, with access split by record"],
     ["comment-1.truck-rule.maya.commentdesk.eth", "one comment", "Records on that resolver, no token needed per comment"],
   ]
   return (

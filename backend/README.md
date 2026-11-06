@@ -63,8 +63,8 @@ Set `NEXT_PUBLIC_API_URL` when the API is not on `http://localhost:8787`, and ad
 ## ENS layout
 
 ```
-commentdesk.eth                      UserRegistry, shared platform resolver
-maya.commentdesk.eth                 token owned by the member
+commentdesk.eth                      UserRegistry and platform resolver
+maya.commentdesk.eth                 non-transferable token, the member's own resolver and UserRegistry
 agent.maya.commentdesk.eth           the member's agent, a separate name
 truck-rule.maya.commentdesk.eth      token owned by the member, its own PermissionedResolver
 comment-1.truck-rule.maya...         records on that resolver, resolved by wildcard, no token
@@ -76,11 +76,23 @@ Access on a docket's resolver:
 
 | Account | Can write |
 | --- | --- |
-| Creator | Every record |
+| Creator | Only `status`, `description`, `commentdesk.deadline`, `.topics`, `.credential` |
 | Operator | Only `status`, `commentdesk.arkiv`, `.author`, `.author-type`, `.topic`, `.swarm` |
 | Moderator | Only `status` |
 
-The operator gives up its text admin role in the same transaction that sets this up, so it cannot grant itself more later. The simulation proves all of this, including the failed escalation attempts.
+Resolver roles can be scoped to a key but not to a name, so this split is what stops a creator rewriting a comment's author. It is set in one transaction: during `initialize` the factory holds text admin, makes the grants and gives the role up. Nobody holds it afterwards, so nobody can ever widen these grants.
+
+How each ENS rule is applied:
+
+| ENS feature | How we use it |
+| --- | --- |
+| Emancipation | Member registries give the operator only `ROLE_REGISTRAR` and `ROLE_RENEW`, like the `.eth` registry, so `isEmancipated()` is true from birth. `npm run emancipate:ens -- --yes` does the same for the root. That step is permanent. |
+| Withheld `ROLE_CAN_TRANSFER_ADMIN` | Member names cannot be transferred, so a verified identity cannot be sold. |
+| `setParent` | Every registry links back to its parent, so ENS can verify the chain and find canonical names. |
+| Per-account resolver | Each member owns a resolver the operator has no role on, so it cannot repoint their name. |
+| Upgrade roles | Never granted, so no registry or resolver here can be upgraded. |
+
+`npm run simulate:ens` proves all of the above, including 19 attempts that must fail.
 
 The docket's ENS record also stores the Swarm reference. That pointer outlives the Arkiv docket entity, which expires after its grace period.
 

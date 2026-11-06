@@ -3,14 +3,18 @@
 import { useEffect, useState, type ReactNode } from "react"
 import Link from "next/link"
 import { api, ensUrl, type Health, type Member } from "@/lib/api"
-import { getWallet } from "@/lib/wallet"
+import { currentWallet } from "@/lib/wallet"
 
 const MEMBER_CHANGED = "commentdesk:member-changed"
 
 export function useMember() {
   const [member, setMember] = useState<Member | null>()
   useEffect(() => {
-    const load = () => api.member(getWallet().address).then(setMember).catch(() => setMember(null))
+    const load = () => {
+      const wallet = currentWallet()
+      if (!wallet) return setMember(null)
+      api.member(wallet.address).then(setMember).catch(() => setMember(null))
+    }
     load()
     window.addEventListener(MEMBER_CHANGED, load)
     return () => window.removeEventListener(MEMBER_CHANGED, load)

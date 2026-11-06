@@ -1,5 +1,5 @@
 import { calculatePKCECodeChallenge, randomPKCECodeVerifier } from "openid-client";
-import type { AgentConfirmed } from "@commentdesk/shared";
+import type { AgentConfirmed } from "../shared";
 import type { Deps } from "../deps";
 import { GateError } from "../errors";
 import { randomToken, sha256B64url, sha256Hex } from "../crypto";

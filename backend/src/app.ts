@@ -1,6 +1,6 @@
 import express, { type NextFunction, type Request, type Response } from "express";
 import { z } from "zod";
-import { SENTIMENTS, type ApiError, type SessionDto } from "@commentdesk/shared";
+import { SENTIMENTS, type ApiError, type SessionDto } from "./shared";
 import type { Deps } from "./deps";
 import { GateError } from "./errors";
 import { Sessions } from "./session";

@@ -2,7 +2,7 @@
 
 import { useRef, useState } from "react";
 import { IDKitRequestWidget, IDKitErrorCodes, proofOfHuman, selfieCheck, type IDKitResult } from "@worldcoin/idkit";
-import type { WorldRequestDto, WorldRequestInput } from "@commentdesk/shared";
+import type { WorldRequestDto, WorldRequestInput } from "@commentdesk/backend/shared";
 import { api, ApiFailure } from "./api";
 import { explain } from "./reasons";
 

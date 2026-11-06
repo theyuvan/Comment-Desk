@@ -1,5 +1,5 @@
 import Anthropic from "@anthropic-ai/sdk";
-import { SENTIMENTS, type DocketInfo, type DraftDto } from "@commentdesk/shared";
+import { SENTIMENTS, type DocketInfo, type DraftDto } from "../shared";
 import type { Deps } from "../deps";
 import { GateError } from "../errors";
 import { randomToken } from "../crypto";

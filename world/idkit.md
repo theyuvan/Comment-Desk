@@ -25,7 +25,7 @@ success is never trusted.
 ## Successful and alternative paths, demonstrated
 
 - **Successful:** join mints `maya.commentdesk.eth`; a human comment posts as that name. Full
-  script in [`docs/world-id.md`](../docs/world-id.md#demo-script-every-path-the-world-tracks-require).
+  script in [`world/world-id.md`](world-id.md#demo-script-every-path-the-world-tracks-require).
 - **Cancelled:** the member cancels the widget in World App — "You cancelled… Nothing was posted."
 - **Already verified (join):** verifying again with the same nullifier signs the human back into
   their existing member instead of minting a second name — reused, not rejected, because the

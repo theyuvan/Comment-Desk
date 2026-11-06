@@ -4,7 +4,7 @@ This is the World half of Comment Desk: IDKit (join and human-typed comments), W
 (agent-drafted comments) and the built-in drafting agent. It lives in
 [backend/src/world/](../backend/src/world/) and starts from one entry point,
 [`startWorldGates`](../backend/src/world/start.ts). It hands every verified result to the Arkiv/ENS
-half through one interface, `WorldGateHost` in [shared/src/world-gate.ts](../shared/src/world-gate.ts),
+half through one interface, `WorldGateHost` in [backend/src/shared/world-gate.ts](../backend/src/shared/world-gate.ts),
 which [`DeskWorldHost`](../backend/src/host/desk-host.ts) implements. That class writes the Arkiv
 entities and mints the ENSv2 names.
 

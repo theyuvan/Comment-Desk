@@ -1,7 +1,7 @@
 "use client";
 
 import { useEffect, useRef, useState, type FormEvent } from "react";
-import type { DraftDto } from "@commentdesk/shared";
+import type { DraftDto } from "@commentdesk/backend/shared";
 import { Button } from "@/components/ui/button";
 import { Textarea } from "@/components/ui/textarea";
 import { api, ApiFailure } from "./api";

@@ -3,7 +3,7 @@ import type { ArkivStore } from "../arkiv/store.ts";
 import type { Desk, VerifiedComment } from "../desk.ts";
 
 /**
- * Implements `WorldGateHost` from shared/src/world-gate.ts: the whole join between the
+ * Implements `WorldGateHost` from src/shared/world-gate.ts: the whole join between the
  * World gates and Arkiv/ENS. World runs every proof check and then calls these three methods.
  *
  * The types here are structural, so this file needs no dependency on that package.

@@ -1,4 +1,4 @@
-import type { WorldGateHost } from "@commentdesk/shared";
+import type { WorldGateHost } from "../shared";
 import { buildApp } from "../app";
 import { nowSec } from "../crypto";
 import type { Deps } from "../deps";

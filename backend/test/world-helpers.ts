@@ -1,6 +1,6 @@
 import { randomBytes } from "node:crypto";
 import { hashSignal } from "@worldcoin/idkit-core/hashing";
-import type { WorldRequestDto } from "@commentdesk/shared";
+import type { WorldRequestDto } from "../src/shared";
 import { loadConfig } from "../src/world/config";
 import type { Deps } from "../src/deps";
 import { WorldStore } from "../src/store";

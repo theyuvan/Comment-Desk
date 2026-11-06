@@ -18,7 +18,7 @@ const worldPaths = [
 
 /** @type {import('next').NextConfig} */
 const nextConfig = {
-  transpilePackages: ["@commentdesk/shared", "@commentdesk/contracts"],
+  transpilePackages: ["@commentdesk/backend", "@commentdesk/contracts"],
   // The monorepo root. Without it, a stray lockfile in a parent folder (e.g. the home
   // directory) becomes the root and Turbopack scans, and can crash on, the whole tree.
   turbopack: {

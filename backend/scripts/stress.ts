@@ -10,7 +10,7 @@
  */
 import { randomBytes } from "node:crypto";
 import type { AddressInfo } from "node:net";
-import type { WorldRequestDto } from "@commentdesk/shared";
+import type { WorldRequestDto } from "../src/shared";
 import { buildApp } from "../src/app.ts";
 import { nowSec } from "../src/crypto.ts";
 import type { Deps } from "../src/deps.ts";

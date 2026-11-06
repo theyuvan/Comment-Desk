@@ -1,4 +1,4 @@
-import type { WorldGateHost } from "@commentdesk/shared";
+import type { WorldGateHost } from "./shared";
 import type { Config } from "./world/config";
 import type { WorldStore } from "./store";
 import type { PortalVerifier } from "./world/portal";

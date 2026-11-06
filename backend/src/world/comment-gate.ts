@@ -1,4 +1,4 @@
-import type { CommentCreated, CommentProof, CommentSubmission, HumanVerified, MemberCreated, JoinRequest } from "@commentdesk/shared";
+import type { CommentCreated, CommentProof, CommentSubmission, HumanVerified, MemberCreated, JoinRequest } from "../shared";
 import type { Deps } from "../deps";
 import { GateError } from "../errors";
 import { slotKey } from "../store";

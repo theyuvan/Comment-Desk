@@ -1,4 +1,4 @@
-import type { DraftDto } from "@commentdesk/shared";
+import type { DraftDto } from "../shared";
 import type { Deps } from "../deps";
 import { GateError } from "../errors";
 import { draftHash, randomToken, sha256Hex } from "../crypto";

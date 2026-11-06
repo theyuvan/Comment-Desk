@@ -2,7 +2,7 @@
 import Link from "next/link";
 
 import { useCallback, useEffect, useState } from "react";
-import type { DraftDto } from "@commentdesk/shared";
+import type { DraftDto } from "@commentdesk/backend/shared";
 import { api, ApiFailure } from "./api";
 import { explain } from "./reasons";
 

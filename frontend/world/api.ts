@@ -1,4 +1,4 @@
-import type { ApiError } from "@commentdesk/shared";
+import type { ApiError } from "@commentdesk/backend/shared";
 
 export class ApiFailure extends Error {
   constructor(

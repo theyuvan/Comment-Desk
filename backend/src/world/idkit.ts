@@ -9,7 +9,7 @@ import {
   type WorldCredential,
   type WorldRequestDto,
   type WorldRequestInput,
-} from "@commentdesk/shared";
+} from "../shared";
 import type { Deps } from "../deps";
 import { GateError } from "../errors";
 import { draftHash, sha256Hex } from "../crypto";

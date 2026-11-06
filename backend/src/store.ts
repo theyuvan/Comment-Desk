@@ -1,6 +1,6 @@
 import { mkdirSync, readFileSync, renameSync, writeFileSync } from "node:fs";
 import { dirname } from "node:path";
-import type { DraftStatus, Sentiment, WorldCredential } from "@commentdesk/shared";
+import type { DraftStatus, Sentiment, WorldCredential } from "./shared";
 
 /**
  * World-gate state only: one-time request records, replay guards, agent drafts and

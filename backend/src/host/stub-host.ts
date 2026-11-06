@@ -7,7 +7,7 @@ import type {
   JoinRequest,
   MemberCreated,
   WorldGateHost,
-} from "@commentdesk/shared";
+} from "../shared";
 import { mkdirSync, readFileSync, writeFileSync } from "node:fs";
 import { dirname } from "node:path";
 import { sha256Hex } from "../crypto";

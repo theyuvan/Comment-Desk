@@ -31,7 +31,7 @@ screen.
 
 - **Successful:** agent drafts, member approves, comment posts as
   `agent.maya.commentdesk.eth`. Full script in
-  [`docs/world-id.md`](../docs/world-id.md#demo-script-every-path-the-world-tracks-require).
+  [`world/world-id.md`](world-id.md#demo-script-every-path-the-world-tracks-require).
 - **Denied — draft changed:** the agent revises the draft while an approval is in flight. The
   callback's hash check fails and the draft is discarded: *"The draft changed after approval was
   requested. It was discarded — nothing posted."*

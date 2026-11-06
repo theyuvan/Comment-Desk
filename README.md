@@ -223,7 +223,7 @@ Rabdi has no permanent entities: the longest lifetime is 7,884,000 blocks, so lo
 
 ### World ID — real verification, not the track's mocked-proof allowance
 
-The track permits mocked proofs for the hackathon, but this project uses real ones: production World App for IDKit, production World IdP for Agent Pass. Full setup, credential rationale and demo script: [docs/world-id.md](docs/world-id.md). Track-facing writeups and integration debriefs: [world/agent-pass.md](world/agent-pass.md), [world/idkit.md](world/idkit.md).
+The track permits mocked proofs for the hackathon, but this project uses real ones: production World App for IDKit, production World IdP for Agent Pass. Full setup, credential rationale and demo script: [world/world-id.md](world/world-id.md). Track-facing writeups and integration debriefs: [world/agent-pass.md](world/agent-pass.md), [world/idkit.md](world/idkit.md).
 
 **As built (IDKit 4.6 — the IDKit 2 `IDKitWidget` / `verifyCloudProof` API is gone).** "Device-level" from the original plan isn't used: `deviceLegacy` is deprecated in IDKit 4 and doesn't prove uniqueness. Join uses Proof of Human; each docket's credential level picks Proof of Human (strict) or Selfie Check (soft).
 
@@ -263,7 +263,7 @@ The backend checks the result against the request it issued (nonce, environment,
 
 **The drafting agent** ([backend/src/world/agent-interview.ts](backend/src/world/agent-interview.ts)) interviews the member about their own view (topic, support / oppose / neutral, reasons, experience) and writes the comment in their words. It uses `claude-opus-5-5`, and its only tool is `save_draft`. It can never post: the draft goes through the same Agent Pass approval, and the position is part of the approved hash. Members can also bring their own agent with a token from `/agent`.
 
-The handoff to the Arkiv/ENS half is one interface, `WorldGateHost` ([shared/src/world-gate.ts](shared/src/world-gate.ts)): `onMemberVerified({ humanVerified: true, proofRef, … })` and `onCommentVerified({ humanVerified: true, proofRef, … } | { agentConfirmed: true, draftKey, proofRef, … })`.
+The handoff to the Arkiv/ENS half is one interface, `WorldGateHost` ([backend/src/shared/world-gate.ts](backend/src/shared/world-gate.ts)): `onMemberVerified({ humanVerified: true, proofRef, … })` and `onCommentVerified({ humanVerified: true, proofRef, … } | { agentConfirmed: true, draftKey, proofRef, … })`.
 
 **Critical setup trap**: the app's environment (staging vs. production), the action's environment, and which client scans the QR code (Simulator vs. real World App) must all match. A production action scanned by the Simulator — or a staging action scanned by the real World App — silently returns zero proofs and looks exactly like a frontend bug. Register one production action for the real demo; keep a separate staging action only if you need repeatable automated testing.
 

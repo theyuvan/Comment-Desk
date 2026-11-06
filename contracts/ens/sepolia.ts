@@ -78,9 +78,13 @@ export const ROOT_SETUP_ROLES =
   PARENT_ROLES;
 
 /**
- * The operator on a member's registry. Register and renew only, exactly how
- * the .eth registrar works, so these registries are emancipated from birth:
- * nobody can change or delete a name in them.
+ * The operator on a member's or docket's own registry. Register and renew, plus
+ * `SET_PARENT` to link it under its parent once at deployment.
+ *
+ * This does NOT emancipate the registry: `SET_PARENT` stays granted to the
+ * operator afterwards, so the operator can still move where this registry sits
+ * in the tree. It only withholds the two roles that would let the operator touch
+ * names already registered inside it (`SET_RESOLVER`, `SET_SUBREGISTRY`).
  */
 export const OPERATOR_SUBNAME_ROLES = REGISTRY_ROLES.REGISTRAR | REGISTRY_ROLES.RENEW | REGISTRY_ROLES.SET_PARENT;
 

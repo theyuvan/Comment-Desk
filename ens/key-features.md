@@ -58,13 +58,26 @@ flow. `npm run simulate:ens -w backend` replays the whole flow, including the de
 free against the real contracts; `npm run e2e -w backend` runs it end to end with real World ID,
 Arkiv and Swarm in the loop.
 
+## Root emancipated, verified live
+
+`commentdesk.eth`'s root registry is emancipated:
+[tx `0xaaa8af72870c4e6cded1d39289d1365f025151e415f190f28f22adf008d35b5b`](https://sepolia.etherscan.io/tx/0xaaa8af72870c4e6cded1d39289d1365f025151e415f190f28f22adf008d35b5b).
+The operator no longer holds `SET_RESOLVER` or `SET_SUBREGISTRY` on the root — we re-ran the exact
+simulated-attack calls from our own audit afterward, against the live contract, and both now
+revert: `setResolver` and `setSubregistry` on a member's root-level token are refused, not just
+unused.
+
 ## Known gap, stated honestly
 
-`commentdesk.eth`'s root registry is not yet emancipated, so the platform operator currently still
-holds the role to override a member's resolver or subregistry at the root, even though it never
-does so in the app's own code paths. Emancipating the root (`npm run emancipate:ens -w backend`)
-is a one-way action we're deciding on deliberately rather than rushing before judging — see the
-main README's "Honest gaps" section.
+That root action does not touch the *separate* registry each member and docket deploys to hold
+its own subnames (`agent.maya…`, a docket's comments). The operator keeps `SET_PARENT` on each of
+those (`OPERATOR_SUBNAME_ROLES`, used once at deployment to link it under its parent), so it can
+still re-parent an individual member's or docket's own subname registry after the fact — a
+narrower gap than the one we closed, but the same simulated-attack script still catches it live.
+It does not let the operator touch or resell the member's actual name; that's what the root
+emancipation above protects. Closing this needs a code change (revoke `SET_PARENT` right after the
+one `setParent` call, for every future registry) plus its own one-way transaction per already-created
+registry — a decision we're making deliberately rather than rushing before judging.
 
 ## Feedback for ENS
 

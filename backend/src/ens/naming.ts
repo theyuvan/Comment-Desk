@@ -218,7 +218,12 @@ export class EnsNaming implements Naming {
     });
   }
 
-  /** An emancipated registry for `name`, linked back to its parent. */
+  /**
+   * A registry for `name`, linked back to its parent. Not emancipated: the
+   * operator keeps `SET_PARENT` on it (see `OPERATOR_SUBNAME_ROLES`), so it can
+   * still be re-parented after this call. Nobody's actual name token inside it
+   * is affected by that — `MEMBER_TOKEN_ROLES` governs those independently.
+   */
   private async deployRegistry(name: string, parent: Address): Promise<Address> {
     const registry = await this.registryOf(name);
     if (!(await this.isDeployed(registry))) {

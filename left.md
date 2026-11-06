@@ -65,7 +65,7 @@ The merge is done on `world-integration`. All 56 backend tests and your 20 World
 
 ### Yuvan
 
-- [ ] Decide on emancipating `commentdesk.eth`. It's permanent: `npm run emancipate:ens -- --yes`. Until then the operator can still override member names at the root.
+- [x] `commentdesk.eth`'s root is emancipated. A narrower gap remains: the operator keeps `SET_PARENT` on each member's/docket's own subname registry, not the root. See [ens/key-features.md](ens/key-features.md#known-gap-stated-honestly) for what fixing that would take, if you want it before judging.
 - [ ] Choose an open-source license. The Arkiv tracks require one.
 - [ ] Make the repo public.
 - [ ] Fill the `TO FILL` gaps: deployed URL and plans after Mumbai in `arkiv/reach.md`, demo timestamp in `arkiv/swarm.md`.

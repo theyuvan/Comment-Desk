@@ -425,6 +425,7 @@ We used Claude Code to research the ENSv2 and Arkiv contracts and SDKs, and to w
 
 ## Honest gaps and future work
 
+- `commentdesk.eth`'s root registry is emancipated ([tx](https://sepolia.etherscan.io/tx/0xaaa8af72870c4e6cded1d39289d1365f025151e415f190f28f22adf008d35b5b)), so the operator can no longer override a member's resolver or subregistry at the root. It still keeps `SET_PARENT` on each member's and docket's own subname registry, so it could still re-parent one of those — not the member's actual name, which the root action protects. Full detail: [ens/key-features.md](ens/key-features.md#known-gap-stated-honestly).
 - Comment text itself isn't encrypted — anyone who can see an entity can read its content. Field-level privacy needs ZK/FHE, not available on this stack today.
 - ENS ownership is public, so a member's name links openly to their wallet. The hash stops casual scanning of Arkiv, not someone who starts from an ENS name.
 - One publisher wallet signs every Arkiv entity, so `$creator` proves we published a record, not that a given person wrote it. Comments can't be edited after posting, and the count can be reproduced, but outsiders can't yet prove that a comment wasn't fabricated by the publisher. Recounting proves the tally matches the published records, not that every record is genuine.

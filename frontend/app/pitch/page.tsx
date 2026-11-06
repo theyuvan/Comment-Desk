@@ -22,10 +22,10 @@ import {
   type LucideIcon,
 } from "lucide-react"
 import { api, type Health } from "@/lib/api"
-import { EntityGraph, ExpiryDial, LiveRecount, TamperTest } from "@/components/pitch/arkiv"
+import { EntityGraph, LiveRecount, TamperTest } from "@/components/pitch/arkiv"
 import { EnsGate, NameTree, RoleSwitch } from "@/components/pitch/ens"
 import { BreakIt, CheckLadder, ProofBinding } from "@/components/pitch/world"
-import { Big, Flood, Journey } from "@/components/pitch/shared"
+import { Big, Flood } from "@/components/pitch/shared"
 import { Globe } from "@/components/pitch/globe"
 
 type SponsorId = "arkiv" | "ens" | "world"
@@ -124,7 +124,7 @@ export default function PitchPage() {
 
   return (
     <div className="noise-overlay flex h-dvh flex-col bg-background text-foreground">
-      <div className="page-lines" aria-hidden="true" />
+      <div className="dot-grid" aria-hidden="true" />
       <header className="relative z-10 shrink-0 border-b border-foreground/10">
         <div className="mx-auto flex max-w-[1280px] items-center justify-between px-4 py-4 sm:px-8">
           <Link href="/" className="font-display text-xl tracking-tight">
@@ -140,7 +140,7 @@ export default function PitchPage() {
       </header>
 
       <div ref={deck} className="relative z-10 flex min-h-0 flex-1 flex-col bg-background text-foreground">
-        <div className="page-lines" aria-hidden="true" />
+        <div className="dot-grid" aria-hidden="true" />
         <main className="relative z-10 flex min-h-0 flex-1 overflow-y-auto">
           <div
             key={`${sponsor}-${index}`}
@@ -247,9 +247,12 @@ type Feature = { icon: LucideIcon; name: string; effect: string }
 
 function Features({ items }: { items: Feature[] }) {
   return (
-    <div className="grid grid-cols-2 gap-px border border-foreground/15 bg-foreground/15 lg:grid-cols-3">
+    <div className="grid grid-cols-2 gap-3 sm:gap-4 lg:grid-cols-3">
       {items.map(({ icon: Icon, name, effect }) => (
-        <div key={name} className="group bg-background p-5 transition-colors duration-300 hover:bg-foreground hover:text-background sm:p-7">
+        <div
+          key={name}
+          className="group rounded-2xl bg-foreground/[0.04] p-5 transition-colors duration-300 hover:bg-foreground hover:text-background sm:p-7"
+        >
           <Icon className="h-6 w-6" strokeWidth={1.5} />
           <div className="mt-6 font-display text-xl leading-tight sm:text-2xl">{name}</div>
           <div className="mt-2 font-mono text-[11px] leading-relaxed opacity-60">{effect}</div>
@@ -275,14 +278,6 @@ const problem: Slide = { label: "The problem", body: <Flood /> }
 const ARKIV_DECK: Slide[] = [
   { label: "Comment Desk", body: <Title tagline="A count anyone can rebuild." visual={<EntityGraph bare />} /> },
   problem,
-  {
-    label: "The case",
-    body: (
-      <Stage title="A docket is a case, not a feed.">
-        <Journey marks={{ Open: "Docket entity created", Comment: "Readonly. No edits, ever", Conclude: "Ruling patched in, signed", Recount: "Anyone, no key" }} />
-      </Stage>
-    ),
-  },
   { label: "The record", body: <Stage title="Four entities. One public record."><EntityGraph /></Stage> },
   {
     label: "Key features",
@@ -302,21 +297,12 @@ const ARKIV_DECK: Slide[] = [
     ),
   },
   { label: "Readonly", body: <Stage title="Try to change a comment."><TamperTest /></Stage> },
-  { label: "Expiry", body: <Stage title="Data with a deadline."><ExpiryDial /></Stage> },
   { label: "Live recount", body: <LiveRecount /> },
 ]
 
 const ENS_DECK: Slide[] = [
   { label: "Comment Desk", body: <Title tagline="ENS decides who can speak." visual={<NameTree bare />} /> },
   problem,
-  {
-    label: "The case",
-    body: (
-      <Stage title="A docket is a case, not a feed.">
-        <Journey marks={{ Open: "Its own registry and resolver", Comment: "ENS checks, then Arkiv records", Conclude: "Status record flips", Recount: "Name points to the record" }} />
-      </Stage>
-    ),
-  },
   { label: "Every name is real", body: <Stage title="Not a row. A name."><NameTree /></Stage> },
   { label: "The gate", body: <Stage title="No ENS, no comment."><EnsGate /></Stage> },
   { label: "Access control", body: <Stage title="One role. One field."><RoleSwitch /></Stage> },
@@ -342,14 +328,6 @@ const ENS_DECK: Slide[] = [
 const WORLD_DECK: Slide[] = [
   { label: "Comment Desk", body: <Title tagline="One human, one voice." visual={<div className="mx-auto max-w-[480px]"><Globe /></div>} /> },
   problem,
-  {
-    label: "The case",
-    body: (
-      <Stage title="A docket is a case, not a feed.">
-        <Journey marks={{ Open: "Level set: Orb or Selfie", Comment: "One human, one voice per topic", Conclude: "A ruling, on the record", Recount: "Humans counted, not accounts" }} />
-      </Stage>
-    ),
-  },
   { label: "Who wrote it", body: <Stage title="The check matches the author."><CheckLadder /></Stage> },
   { label: "Bound to the words", body: <Stage title="A proof can't carry different text."><ProofBinding /></Stage> },
   {

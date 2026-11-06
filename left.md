@@ -61,7 +61,7 @@ The merge is done on `world-integration`. All 56 backend tests and your 20 World
 - [ ] Register `https://localhost:3000/api/agent-pass/callback` in the Agent Pass portal, or your tunnel's address.
 - [ ] Update the docket slug in the commands shown by `AgentTokenPanel`. Docket keys are now `0x…` entity keys, not `truck-emissions-rule`.
 - [ ] Update `docs/world-id.md`: it still describes `StubHost` and the old demo docket.
-- [ ] Write the Agent Pass and IDKit debriefs for both World tracks.
+- [ ] Fill the **TODO (live)** fields in [`world/agent-pass.md`](world/agent-pass.md) and [`world/idkit.md`](world/idkit.md) after the real World App test below — they're already written, just missing the live timing.
 
 ### Yuvan
 

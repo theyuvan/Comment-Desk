@@ -1,6 +1,7 @@
 {
   "name": "comment-desk",
   "private": true,
+  "license": "MIT",
   "workspaces": [
     "shared",
     "contracts",

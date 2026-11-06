@@ -10,22 +10,11 @@ Built for ETHGlobal Mumbai, Nov 2026. Uses World ID (identity + Agent Pass), Ark
 
 Comment Desk's docket is the same concept, applied to a different kind of proceeding: not a lawsuit, but a public consultation — a regulatory comment period, a DAO's open question, a community's decision in progress. Same structure (a case, its filings, its record), different proceeding. Worth stating this plainly in the pitch, because a judge who knows the term from SEC filings should immediately recognize why it fits, not wonder if it's decoration.
 
-## Confirmed: the Arkiv + Swarm bonus is real
+## Arkiv and Swarm together
 
-The official track text confirms it: **Arkiv + Swarm bonus (from scratch) — $500**, on top of whatever Arkiv track prize is won (doesn't use another of the three ETHGlobal sponsor picks). Qualifying needs both Arkiv and Swarm used meaningfully — Swarm alone doesn't count.
+What Comment Desk puts on Swarm: a **docket's concluding record** — the full published ruling/response text, plus the closed docket's complete comment archive as a single file — once the docket closes. This is the natural fit, not a bolted-on integration: the live, mutable state (open dockets, live tallies) stays on Arkiv, where expiry and queryability matter; the final, permanent case record moves to Swarm once there's nothing left to mutate, and the Arkiv `docket` entity holds a pointer to it.
 
-What Comment Desk puts on Swarm: a **docket's concluding record** — the full published ruling/response text, plus the closed docket's complete comment archive as a single file — once the docket closes. This is the natural fit, not a bolted-on integration: the live, mutable state (open dockets, live tallies) stays on Arkiv where expiry and queryability matter; the final, permanent "case record" moves to Swarm once there's nothing left to mutate, and the Arkiv `docket` entity holds a pointer to it.
-
-Required before submission — `/arkiv/swarm.md` must state:
-- What's on Swarm (the closed docket's ruling + archive) vs. Arkiv (live state) — i.e. the paragraph above, with actual numbers.
-- One real `docket` entity key and the Swarm reference it points to, with an openable link.
-- The postage stamp batch ID used and which wallet bought it, and the Bee node/service uploaded through.
-- Which files in the repo do the upload and the read-back.
-- Steps to run one upload and one read.
-- The exact moment in the demo video where Swarm is shown.
-- What got in the way building the Swarm piece.
-
-**Important caution from the track rules**: if a docket's archive is ever encrypted before upload, the decryption key must never be placed inside the Arkiv entity's Swarm-reference field as-is — Arkiv entities are public. Either encrypt the reference itself or keep the key off Arkiv entirely.
+Full detail — what's on each layer, a real entity key and the Swarm reference it points to, the postage batch, and how to run one upload and one read yourself — is in [arkiv/swarm.md](arkiv/swarm.md).
 
 ## Problem
 
@@ -234,7 +223,7 @@ Rabdi has no permanent entities: the longest lifetime is 7,884,000 blocks, so lo
 
 ### World ID — real verification, not the track's mocked-proof allowance
 
-The track permits mocked proofs for the hackathon, but this project uses real ones: production World App for IDKit, production World IdP for Agent Pass. Full setup, credential rationale and demo script: [docs/world-id.md](docs/world-id.md). Debriefs: [docs/world-debrief.md](docs/world-debrief.md).
+The track permits mocked proofs for the hackathon, but this project uses real ones: production World App for IDKit, production World IdP for Agent Pass. Full setup, credential rationale and demo script: [docs/world-id.md](docs/world-id.md). Track-facing writeups and integration debriefs: [world/agent-pass.md](world/agent-pass.md), [world/idkit.md](world/idkit.md).
 
 **As built (IDKit 4.6 — the IDKit 2 `IDKitWidget` / `verifyCloudProof` API is gone).** "Device-level" from the original plan isn't used: `deviceLegacy` is deprecated in IDKit 4 and doesn't prove uniqueness. Join uses Proof of Human; each docket's credential level picks Proof of Human (strict) or Selfie Check (soft).
 
@@ -252,7 +241,7 @@ const sig = signRequest({ signingKeyHex: WORLD_ID_SIGNING_KEY, action, ttl: 300 
 // stored under sig.nonce with the action, signal (member + exact text hash) and credential
 ```
 
-The browser only carries the proof ([frontend/src/world/WorldVerifyButton.tsx](frontend/src/world/WorldVerifyButton.tsx)):
+The browser only carries the proof ([frontend/world/WorldVerifyButton.tsx](frontend/world/WorldVerifyButton.tsx)):
 
 ```tsx
 import { IDKitRequestWidget, proofOfHuman, selfieCheck } from "@worldcoin/idkit";
@@ -280,6 +269,9 @@ The handoff to the Arkiv/ENS half is one interface, `WorldGateHost` ([shared/src
 
 ### ENSv2 — real contracts on Sepolia
 
+Track-facing writeup, with code references and the "central, not cosmetic" case:
+[ens/key-features.md](ens/key-features.md).
+
 See [backend/src/ens/naming.ts](backend/src/ens/naming.ts). Each level of a name has its own registry, deployed through ENS's Verifiable Factory:
 
 ```typescript
@@ -299,6 +291,10 @@ await send(docketResolver, resolverAbi, "multicall", [[
 ```
 
 `npm run simulate:ens` in `backend/` replays the whole flow against live Sepolia contracts for free, including the denied paths.
+
+**ENS decides, Arkiv only records the result.** Every comment first reads the docket's `status` and `commentdesk.agents` text records straight from ENS, through the Universal Resolver, exactly the way any external wallet or app would. If ENS says the docket is closed, or says agents aren't allowed on it, nothing is written to Arkiv — even if Arkiv's own copy of the docket still says open. See [backend/src/desk.ts](backend/src/desk.ts), `assertEnsAllows`.
+
+This is checked live, not by inspection: a moderator writes `closed-for-cause` to one ENS text record and nothing else. The next comment is refused with `docket_closed`, while Arkiv's own `docket` entity still reads `open`. `npm run e2e -w backend` reproduces this exact step (`== ENS decides who can comment`) against the real Sepolia and Rabdi networks. ENS is the one source that can stop a comment; Arkiv can't override it.
 
 ### Arkiv — typed schemas on Rabdi
 
@@ -379,11 +375,13 @@ The Arkiv track is judged entirely off these files plus a reproducible query —
 | `/arkiv/how-you-use-arkiv.md` | Confirms the filtered fields (docket ref, topic, author type, `$creator`) match what the app actually does; confirms each entity's editability (who can mutate what) and expiry (docket deadline + grace) are real product requirements, not arbitrary defaults; confirms every Arkiv feature used changes something a user actually sees (the live tally, the recount page, the expiry countdown). |
 | `/arkiv/swarm.md` | As detailed above, if entering the Swarm bonus. |
 
-The README itself must also state, per the track's qualification requirements: the wallet address(es) that wrote the project's entities (filled in once deployed — e.g. `0x...` for the demo's platform-operated member/docket-creation wallet), and one query a judge can run directly, e.g.:
+The README itself must also state, per the track's qualification requirements, the wallet address that wrote the project's entities, and one query a judge can run directly. Both are real, not placeholders:
+
+**Publisher wallet (`$creator` of every Arkiv entity):** `0x4C16bF7e5267530D8185A92B8CA6ec11cCb85310` — see [Deployed addresses](#deployed-addresses) below.
 
 ```bash
 cd backend && npm install
-npm run recount -- <docketKey> <publisherAddress>
+npm run recount -- <docketKey> 0x4C16bF7e5267530D8185A92B8CA6ec11cCb85310
 ```
 
 ```typescript
@@ -391,7 +389,7 @@ npm run recount -- <docketKey> <publisherAddress>
 await client
   .select({ $key: true, topic: true, sentiment: true, stance: true })
   .from(CommentSchema)
-  .createdBy(PUBLISHER_ADDRESS)
+  .createdBy("0x4C16bF7e5267530D8185A92B8CA6ec11cCb85310")
   .where(eq("docket_key", DOCKET_ENTITY_KEY))
   .orderBy(desc("submitted_at"))
   .limit(50)
@@ -438,3 +436,7 @@ We used Claude Code to research the ENSv2 and Arkiv contracts and SDKs, and to w
 - Moderation is minimal in this version — a Moderator can close a docket early, but there's no appeals or dispute process.
 - The analyst insight layer aggregates counts and sentiment but doesn't yet do anything smarter (trend detection, cross-docket analysis) — that's a natural next step, not built in this scope.
 - This is explicitly the mini version: one platform instance, a handful of dockets, enough to prove the mechanism end to end — not a production-scale civic infrastructure deployment.
+
+## License
+
+[MIT](LICENSE).

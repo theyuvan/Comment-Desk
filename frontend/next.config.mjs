@@ -1,3 +1,5 @@
+import path from "node:path"
+
 // Everything is same-origin /api, so the session cookie and the Agent Pass callback
 // live on one origin, as the World gates require.
 const api = process.env.BACKEND_URL ?? "http://localhost:8787"
@@ -17,6 +19,11 @@ const worldPaths = [
 /** @type {import('next').NextConfig} */
 const nextConfig = {
   transpilePackages: ["@commentdesk/shared", "@commentdesk/contracts"],
+  // The monorepo root. Without it, a stray lockfile in a parent folder (e.g. the home
+  // directory) becomes the root and Turbopack scans, and can crash on, the whole tree.
+  turbopack: {
+    root: path.resolve(import.meta.dirname, ".."),
+  },
   // Minting ENS names takes real block confirmations, and the proxy's default 30s cuts them off.
   experimental: {
     proxyTimeout: 600_000,

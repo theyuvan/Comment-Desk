@@ -6,6 +6,7 @@ import { http, type Hex, type LocalAccount } from "viem";
 import { getGasPrice } from "viem/actions";
 import { AppError, SerialQueue } from "../core.ts";
 import { estimateWrite, publicClientFor, type UnsignedWallet } from "./estimate.ts";
+import { WriteGuard } from "./write-guard.ts";
 
 type Phase = "submitting" | "confirmed" | "uncertain" | "acknowledged";
 type JournalEntry = { opId: Hex; kind: string; phase: Phase; nonce?: number; txHash?: string; at: number };
@@ -44,9 +45,9 @@ const MIN_GAS = 1_000_000n;
 
 /**
  * The only path to an Arkiv write. One signer, one queue. An ambiguous send is
- * never retried: the transaction may have landed, so writes stop until the
- * outcome is known. Provider errors are dropped because they can contain the
- * keyed RPC URL.
+ * never retried: the transaction may have landed, so writes pause until the
+ * outcome is known, and WriteGuard works that out from the chain. Provider
+ * errors are dropped because they can contain the keyed RPC URL.
  */
 export class ArkivWriter {
   readonly account: LocalAccount;
@@ -54,7 +55,8 @@ export class ArkivWriter {
   private readonly wallet: ReturnType<typeof createWalletClient>;
   private readonly queue = new SerialQueue();
   private readonly journal: Journal;
-  private halted = false;
+  private readonly guard = new WriteGuard();
+  private isOnChain: (opId: Hex) => Promise<boolean> = async () => false;
 
   constructor(
     private readonly options: {
@@ -76,17 +78,23 @@ export class ArkivWriter {
 
   /** Call once at startup with a way to look an operation up on Arkiv. */
   async reconcile(isOnChain: (opId: Hex) => Promise<boolean>, acknowledge: boolean): Promise<void> {
+    this.isOnChain = isOnChain;
     for (const entry of this.journal.unresolved()) {
-      if (await isOnChain(entry.opId)) {
-        this.journal.append({ opId: entry.opId, kind: entry.kind, phase: "confirmed", txHash: entry.txHash });
-      } else if (acknowledge) {
-        this.journal.append({ opId: entry.opId, kind: entry.kind, phase: "acknowledged" });
-      } else {
-        this.halted = true;
-        console.error(
-          `[arkiv] ${entry.kind} ${entry.opId} has an unknown outcome. Check nonce ${entry.nonce ?? "?"} on the explorer, then restart with ARKIV_ACK_UNRESOLVED=1 if it never landed.`,
-        );
-      }
+      if (acknowledge) this.journal.append({ opId: entry.opId, kind: entry.kind, phase: "acknowledged" });
+      else this.guard.hold(entry);
+    }
+    await this.settleHeldWrites().catch(() => {});
+  }
+
+  private async settleHeldWrites() {
+    const address = this.account.address;
+    const settled = await this.guard.settle({
+      isOnChain: this.isOnChain,
+      latestNonce: () => this.reader.getTransactionCount({ address, blockTag: "latest" }),
+    });
+    for (const { opId, kind, outcome } of settled) {
+      this.journal.append({ opId, kind, phase: outcome === "landed" ? "confirmed" : "acknowledged" });
+      console.warn(`[arkiv] ${kind} ${opId} ${outcome === "landed" ? "landed" : "never landed"}, writes continue`);
     }
   }
 
@@ -99,8 +107,11 @@ export class ArkivWriter {
     ) => Promise<T>,
   ): Promise<T> {
     return this.queue.run(async () => {
-      if (this.halted) {
-        throw new AppError(503, "arkiv_write_halted", "Writes are paused until an earlier write is reconciled.");
+      if (this.guard.holding) {
+        await this.settleHeldWrites().catch(() => {});
+        if (this.guard.holding) {
+          throw new AppError(503, "arkiv_write_settling", "An earlier write is still settling. Try again in a moment.");
+        }
       }
       const params = await this.prepareParams(prepare);
 
@@ -111,14 +122,14 @@ export class ArkivWriter {
       } catch (error) {
         const txHash = (error as { txHash?: string }).txHash;
         this.journal.append({ ...op, phase: "uncertain", nonce: params.nonce, txHash });
-        this.halted = true;
-        throw new AppError(502, "arkiv_write_uncertain", "Arkiv did not confirm this write. It has not been retried.");
+        this.guard.hold({ ...op, nonce: params.nonce, at: Date.now() });
+        throw new AppError(502, "arkiv_write_uncertain", "Arkiv did not confirm this write. Try again in a moment.");
       }
 
       const receipt = await this.reader.getTransactionReceipt({ hash: result.txHash }).catch(() => undefined);
       if (receipt && receipt.status !== "success") {
         this.journal.append({ ...op, phase: "uncertain", nonce: params.nonce, txHash: result.txHash });
-        this.halted = true;
+        this.guard.hold({ ...op, nonce: params.nonce, at: Date.now() });
         throw new AppError(502, "arkiv_write_reverted", "Arkiv reverted this write.");
       }
       this.journal.append({ ...op, phase: "confirmed", nonce: params.nonce, txHash: result.txHash });

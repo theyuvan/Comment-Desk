@@ -135,6 +135,6 @@ The rule: a member's earliest comment per topic counts. Later ones stay on recor
 
 ## If a write gets stuck
 
-`arkiv_write_uncertain` means Arkiv did not confirm a write and it may still have landed. Writes pause on purpose. Restart the server: it checks the journal against Arkiv and clears anything it can prove. If an entry remains, check that nonce on <https://rabdi.explorer.arkiv.network>, then start once with `ARKIV_ACK_UNRESOLVED=1` if it never landed.
+`arkiv_write_uncertain` means Arkiv did not confirm a write and it may still have landed. It is never resent. New writes pause until the outcome is known, then continue by themselves: within about 90 seconds the backend confirms the entity on Arkiv, sees the nonce move, or concludes it never landed. A retry of the same request is stopped by its `op_id`.
 
 Run one instance only. Comment numbering and the write queues assume a single process.

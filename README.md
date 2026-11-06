@@ -219,7 +219,7 @@ Rabdi has no permanent entities: the longest lifetime is 7,884,000 blocks, so lo
 - **Wallet without payment**: a wallet is the cryptographic anchor for ENS ownership and Arkiv's hashed owner field — not a financial instrument. Adding payment would be unrelated scope for a platform whose entire value is verifiable speech, not value transfer.
 - **ENSv2 over legacy ENS**: comment-level subname minting at volume needs ENSv2's cheaper subname path; legacy ENS wasn't built for that minting rate.
 - **IDKit for human-typed, Agent Pass for agent-drafted**: matches the check's strength to how decoupled the content is from direct human review, rather than applying the heaviest check everywhere (theater) or the lightest everywhere (the exact hole CiviClick exploited).
-- **Arkiv over a private database**: the entire pitch is "nobody has to trust the platform's own server" — storing the real tally in a private database would quietly undo that claim. Same reasoning as the rest of this hackathon's work: expiry enforced by the data layer, not by a cron job's uptime; ownership attribution that can't be quietly edited by whoever runs the backend.
+- **Arkiv over a private database**: the entire pitch is "anyone can recount the tally without the platform's own server" — storing the real tally in a private database would quietly undo that claim. Same reasoning as the rest of this hackathon's work: expiry enforced by the data layer, not by a cron job's uptime; ownership attribution that can't be quietly edited by whoever runs the backend.
 
 ## Tech stack
 
@@ -427,7 +427,7 @@ We used Claude Code to research the ENSv2 and Arkiv contracts and SDKs, and to w
 
 - Comment text itself isn't encrypted — anyone who can see an entity can read its content. Field-level privacy needs ZK/FHE, not available on this stack today.
 - ENS ownership is public, so a member's name links openly to their wallet. The hash stops casual scanning of Arkiv, not someone who starts from an ENS name.
-- One publisher wallet signs every Arkiv entity, so `$creator` proves we published a record, not that a given person wrote it. Authorship rests on the World proof reference and the member's signature, which the backend checks before publishing.
+- One publisher wallet signs every Arkiv entity, so `$creator` proves we published a record, not that a given person wrote it. Comments can't be edited after posting, and the count can be reproduced, but outsiders can't yet prove that a comment wasn't fabricated by the publisher. Recounting proves the tally matches the published records, not that every record is genuine.
 - Members and policy acceptances last about 182 days, Arkiv's maximum, and Lifetime Extension isn't automated yet.
 - A lost passkey has no recovery path. World ID's one-identity rule also stops that person joining again with a new one.
 - Passkeys belong to one web domain, so a move to a new domain needs a migration plan.

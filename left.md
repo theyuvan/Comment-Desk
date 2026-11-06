@@ -66,13 +66,23 @@ The merge is done on `world-integration`. All 56 backend tests and your 20 World
 ### Yuvan
 
 - [ ] Decide on emancipating `commentdesk.eth`. It's permanent: `npm run emancipate:ens -- --yes`. Until then the operator can still override member names at the root.
-- [ ] Decide on storing member signatures on comments. Until then our publisher wallet could fake a comment, so the slide "Nobody has to trust our server" overstates things.
 - [ ] Choose an open-source license. The Arkiv tracks require one.
 - [ ] Make the repo public.
 - [ ] Fill the `TO FILL` gaps: deployed URL and plans after Mumbai in `arkiv/reach.md`, demo timestamp in `arkiv/swarm.md`.
 - [ ] Deploy, and record the demo with a fresh docket. Passkeys belong to one web domain, so members made on localhost won't carry over.
 - [ ] Clear out the test dockets, or just leave them to expire about 7 days after their deadlines.
 - [ ] Check our work against the Mumbai ENS prize page, which we couldn't open from here.
+
+## Out of scope
+
+Don't build these for Mumbai. They don't solve the problem this project is about.
+
+| Idea | Why not |
+| --- | --- |
+| Blue ticks or badges | Already covered: World ID verifies the human, and `agent.maya…` plus "agent drafted, human approved" shows the agent and who stands behind it |
+| Karma or reputation scores | That turns a consultation tool into a social network, and it adds rules nobody has designed |
+| Storing signatures on comments | Worth doing later, but it changes the World flow this close to the deadline. It's listed as an honest gap instead |
+| A registrar contract | The operator wallet registers names, which ENS allows. A contract adds risk without changing the demo |
 
 ## Test this with real World
 
@@ -129,6 +139,7 @@ The merge moved or edited these, and nothing else:
 
 - A human who returns on a new device with no synced passkey can sign back in through World, but won't have their wallet. They can comment, but can't open dockets or publish rulings.
 - A lost passkey has no recovery path.
+- Our publisher wallet could still publish a fake comment. Recounting proves the tally matches the published records, not that every record is genuine.
 - The backend must run as one process, because Arkiv has no unique constraint.
 - Live joins and new dockets take a minute or two, because they wait for Sepolia blocks.
 - Full details are in `backend/README.md` and the README's "Honest gaps" section.

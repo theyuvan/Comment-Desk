@@ -65,10 +65,12 @@ function interviews(deps: Deps) {
 /** Claude Opus 5.5 with server-side fallback on a policy decline. */
 export function createClaudeAgentModel(model: string): AgentModel | undefined {
   if (!process.env.ANTHROPIC_API_KEY && !process.env.ANTHROPIC_AUTH_TOKEN) return undefined;
+  // AGENT_MODEL is shared with the Gemini provider, so a Gemini name means our default.
+  const name = model.startsWith("gemini") ? "claude-opus-5-5" : model;
   const client = new Anthropic();
   return ({ system, messages, tools }) =>
     client.beta.messages.create({
-      model,
+      model: name,
       max_tokens: 8000,
       betas: ["server-side-fallback-2026-07-01"],
       fallbacks: "default",

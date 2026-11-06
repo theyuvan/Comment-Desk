@@ -44,7 +44,8 @@ export function parseSentiment(value: unknown): Sentiment {
 
 /** v4 identifiers per credential, plus the v3 identifier the ProofOfHuman preset may fall back to. */
 const ACCEPTED_IDENTIFIERS: Record<WorldCredential, { v4: string; v3: string[] }> = {
-  proof_of_human: { v4: "proof_of_human", v3: ["orb"] },
+  // A v3 Orb proof has been seen labelled both ways; the portal verifies either.
+  proof_of_human: { v4: "proof_of_human", v3: ["orb", "proof_of_human"] },
   selfie: { v4: "selfie", v3: [] },
 };
 

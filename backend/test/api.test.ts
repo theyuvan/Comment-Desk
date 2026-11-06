@@ -9,6 +9,9 @@ function api(context = harness()) {
     store: context.store,
     publisher: { address: "0x1000000000000000000000000000000000000001", chainId: 7794095 },
     corsOrigin: "http://localhost:3000",
+    mode: "memory",
+    policyVersion: "1",
+    rootName: "commentdesk.eth",
   });
   return { ...context, app };
 }

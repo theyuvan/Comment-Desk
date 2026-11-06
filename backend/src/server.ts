@@ -8,6 +8,7 @@ import { ArkivWriter } from "./arkiv/writer.ts";
 import { loadConfig } from "./config.ts";
 import { Desk } from "./desk.ts";
 import { EnsNaming } from "./ens/naming.ts";
+import { BeeArchiver, GATEWAY_BATCH_ID } from "./swarm.ts";
 import { devWorldGate, unavailableWorldGate } from "./world.ts";
 
 const config = loadConfig();
@@ -34,18 +35,26 @@ const naming = new EnsNaming({
 const world = config.WORLD_GATE === "dev" ? devWorldGate : unavailableWorldGate;
 if (config.WORLD_GATE === "dev") console.warn("[world] DEV GATE: proofs are not checked. Records are marked dev:");
 
+const archiver = new BeeArchiver({
+  beeUrl: config.SWARM_BEE_URL,
+  batchId: config.SWARM_BATCH_ID ?? GATEWAY_BATCH_ID,
+});
+
 const desk = new Desk(store, naming, world, {
   policyVersion: config.POLICY_VERSION,
   graceDays: config.GRACE_DAYS,
   maxCommentsPerTopic: config.MAX_COMMENTS_PER_TOPIC,
   moderators: [...config.moderators, ...(moderator ? [moderator.address.toLowerCase() as Address] : [])],
-});
+}, archiver);
 
 const app = createApi({
   desk,
   store,
   publisher: { address: writer.account.address, chainId: 7794095 },
   corsOrigin: config.CORS_ORIGIN,
+  mode: "live",
+  policyVersion: config.POLICY_VERSION,
+  rootName: config.rootName,
 });
 
 serve({ fetch: app.fetch, port: config.PORT }, ({ port }) => {

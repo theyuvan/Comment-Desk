@@ -18,6 +18,7 @@ import { DOMAIN, TYPES, type ActionName } from "../src/auth.ts";
 import { opId, textHash } from "../src/core.ts";
 import { Desk, docketBodyHash } from "../src/desk.ts";
 import type { Naming } from "../src/ens/naming.ts";
+import type { Archiver } from "../src/swarm.ts";
 import type { WorldGate } from "../src/world.ts";
 
 let sequence = 0;
@@ -152,6 +153,27 @@ export class FakeWorld implements WorldGate {
   }
 }
 
+/** Holds uploads in memory, keyed the way Swarm would return them. */
+export class MemoryArchiver implements Archiver {
+  files = new Map<string, string>();
+  failUploads = false;
+
+  urlFor(reference: string) {
+    return `memory://${reference}`;
+  }
+  async upload(_name: string, json: string) {
+    if (this.failUploads) throw new Error("upload failed");
+    const reference = textHash(json).slice(2);
+    this.files.set(reference, json);
+    return reference;
+  }
+  async read(reference: string) {
+    const file = this.files.get(reference);
+    if (!file) throw new Error("not found");
+    return file;
+  }
+}
+
 export const newWallet = () => privateKeyToAccount(generatePrivateKey());
 export type Wallet = ReturnType<typeof newWallet>;
 
@@ -167,12 +189,19 @@ export function harness(config: { moderators?: Address[]; maxCommentsPerTopic?: 
   const store = new MemoryStore();
   const naming = new MemoryNaming();
   const world = new FakeWorld();
-  const desk = new Desk(store, naming, world, {
-    policyVersion: "1",
-    graceDays: 7,
-    maxCommentsPerTopic: config.maxCommentsPerTopic ?? 3,
-    moderators: config.moderators ?? [],
-  });
+  const archiver = new MemoryArchiver();
+  const desk = new Desk(
+    store,
+    naming,
+    world,
+    {
+      policyVersion: "1",
+      graceDays: 7,
+      maxCommentsPerTopic: config.maxCommentsPerTopic ?? 3,
+      moderators: config.moderators ?? [],
+    },
+    archiver,
+  );
 
   const join = async (wallet: Wallet, handle: string, human = handle) => {
     const issuedAt = BigInt(Date.now());
@@ -222,7 +251,7 @@ export function harness(config: { moderators?: Address[]; maxCommentsPerTopic?: 
     await acceptPolicy(wallet);
     return open(wallet);
   };
-  return { store, naming, world, desk, join, acceptPolicy, open, comment, creator };
+  return { store, naming, world, archiver, desk, join, acceptPolicy, open, comment, creator };
 }
 
 /** Lets background ENS writes finish. */

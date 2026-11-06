@@ -60,8 +60,16 @@ function memberView(member: MemberRecord) {
   return { key: member.key, ensName: member.ensName, joinedAt: member.joinedAt, proofRef: member.proofRef };
 }
 
-export function createApi(deps: { desk: Desk; store: ArkivStore; publisher: Publisher; corsOrigin: string }) {
-  const { desk, store, publisher } = deps;
+export function createApi(deps: {
+  desk: Desk;
+  store: ArkivStore;
+  publisher: Publisher;
+  corsOrigin: string;
+  mode: "live" | "memory";
+  policyVersion: string;
+  rootName: string;
+}) {
+  const { desk, store, publisher, mode, policyVersion, rootName } = deps;
   const app = new Hono();
 
   const send = (value: unknown, status = 200) =>
@@ -89,7 +97,7 @@ export function createApi(deps: { desk: Desk; store: ArkivStore; publisher: Publ
     return context.json({ error: "internal", message: "Something went wrong." }, 500);
   });
 
-  app.get("/api/health", (context) => context.json({ ok: true, publisher: publisher.address, chainId: publisher.chainId }));
+  app.get("/api/health", (context) => context.json({ ok: true, mode, rootName, publisher: publisher.address, chainId: publisher.chainId }));
   app.get("/api/stats", async () => send(await desk.stats()));
   app.get("/api/ens/failures", (context) => context.json(desk.ensFailures()));
 
@@ -98,6 +106,7 @@ export function createApi(deps: { desk: Desk; store: ArkivStore; publisher: Publ
     context.json({
       domain: DOMAIN,
       types: TYPES,
+      policyVersion,
       hashing: {
         bodyHash: "keccak256(utf8(JSON.stringify({ question, topics })))",
         stanceHash: "keccak256(utf8(stance))",
@@ -198,6 +207,15 @@ export function createApi(deps: { desk: Desk; store: ArkivStore; publisher: Publ
   app.get("/api/dockets/:key/archive", async (context) => {
     const archive = await desk.archive(key(context.req.param("key")));
     return send({ ...archive, docket: docketView(archive.docket), comments: archive.comments.map(commentView) });
+  });
+
+  /** Retry for a failed background upload. Public: it only publishes a closed record. */
+  app.post("/api/dockets/:key/archive/publish", async (context) => {
+    return send(await desk.publishArchive(key(context.req.param("key"))));
+  });
+
+  app.get("/api/dockets/:key/archive/verify", async (context) => {
+    return send(await desk.verifyArchive(key(context.req.param("key"))));
   });
 
   app.post("/api/dockets/:key/close", async (context) => {

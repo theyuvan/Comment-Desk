@@ -14,7 +14,8 @@
     "smoke:arkiv": "tsx --env-file=.env scripts/smoke-arkiv.ts",
     "recount": "tsx scripts/recount.ts",
     "probe:arkiv": "tsx scripts/probe-arkiv.ts",
-    "check": "tsx scripts/check-setup.ts"
+    "check": "tsx scripts/check-setup.ts",
+    "dev:memory": "tsx watch scripts/dev-memory.ts"
   },
   "keywords": [],
   "author": "",

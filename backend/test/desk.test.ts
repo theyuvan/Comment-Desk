@@ -305,6 +305,52 @@ describe("concluding a docket", () => {
     await expect(attach("ab".repeat(64))).rejects.toEqual(code("invalid_swarm_ref"));
   });
 
+  it("publishes the case file to Swarm when the docket closes", async () => {
+    const { store, naming, archiver, close, comment, join, desk, docket } = await ready();
+    const voter = newWallet();
+    await join(voter, "ravi");
+    await comment(voter, docket);
+    afterDeadline();
+    await close();
+    await settle();
+
+    const swarmRef = store.dockets[0]!.swarmRef!;
+    const file = JSON.parse(archiver.files.get(swarmRef)!);
+    expect(file.ruling).toBe("The rule passes.");
+    expect(file.comments).toHaveLength(1);
+    expect(file.tally.counted).toBe(1);
+    expect(naming.calls).toContain(`archive:truck-rule.maya.commentdesk.eth:${swarmRef}`);
+    await expect(desk.verifyArchive(docket)).resolves.toMatchObject({ matches: true, commentsInFile: 1 });
+  });
+
+  it("does not upload twice, and detects a file that differs from Arkiv", async () => {
+    const { store, archiver, close, desk, docket } = await ready();
+    afterDeadline();
+    await close();
+    await settle();
+    const swarmRef = store.dockets[0]!.swarmRef!;
+    await desk.publishArchive(docket);
+    expect(archiver.files.size).toBe(1);
+
+    const file = JSON.parse(archiver.files.get(swarmRef)!);
+    archiver.files.set(swarmRef, JSON.stringify({ ...file, tally: { counted: 99 } }));
+    await expect(desk.verifyArchive(docket)).resolves.toMatchObject({ matches: false });
+  });
+
+  it("reports a failed upload and recovers on retry", async () => {
+    const { store, archiver, close, desk, docket } = await ready();
+    archiver.failUploads = true;
+    afterDeadline();
+    await close();
+    await settle();
+    expect(store.dockets[0]?.swarmRef).toBeUndefined();
+    expect(desk.ensFailures()).toHaveLength(1);
+
+    archiver.failUploads = false;
+    await desk.publishArchive(docket);
+    expect(store.dockets[0]?.swarmRef).toBeDefined();
+  });
+
   it("records the Swarm reference on Arkiv and ENS once closed", async () => {
     const { store, naming, close, attach, desk, docket } = await ready();
     const swarmRef = "ab".repeat(32);

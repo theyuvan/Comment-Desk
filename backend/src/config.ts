@@ -20,6 +20,10 @@ const schema = z.object({
   ENS_MODERATOR_PRIVATE_KEY: z.preprocess(emptyToUndefined, privateKey.optional()),
   ENS_ROOT_LABEL: z.string().default("commentdesk"),
 
+  /** The public gateway by default. Point this at your own Bee node for a stamp you control. */
+  SWARM_BEE_URL: z.string().url().default("https://api.gateway.ethswarm.org"),
+  SWARM_BATCH_ID: z.preprocess(emptyToUndefined, z.string().regex(/^[0-9a-f]{64}$/).optional()),
+
   /** Comma-separated wallets allowed to moderate. */
   MODERATOR_ADDRESSES: z.string().default(""),
   GRACE_DAYS: z.coerce.number().positive().default(7),

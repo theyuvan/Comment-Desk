@@ -11,6 +11,7 @@ import { AppError, SerialQueue, opId, ownerHash, textHash } from "./core.ts";
 import type { Naming } from "./ens/naming.ts";
 import { assertUsableLabel, normalizeLabel } from "./ens/names.ts";
 import { SENTIMENTS, tally, type Tally } from "./recount.ts";
+import type { Archiver } from "./swarm.ts";
 import { WorldDenied, type CredentialLevel, type WorldGate } from "./world.ts";
 
 export type DeskConfig = {
@@ -67,6 +68,7 @@ export class Desk {
   /** Check-then-write sections, so two requests cannot both pass a uniqueness check. */
   private readonly identityQueue = new SerialQueue();
   private readonly commentQueue = new SerialQueue();
+  private readonly archiveQueue = new SerialQueue();
   /** Covers the moment an indexed count lags a write that just confirmed. */
   private readonly memberTopicCounts = new Map<string, number>();
   private readonly docketCounts = new Map<string, number>();
@@ -77,6 +79,7 @@ export class Desk {
     private readonly naming: Naming,
     private readonly world: WorldGate,
     private readonly config: DeskConfig,
+    private readonly archiver: Archiver,
   ) {}
 
   /** Comment and link records are written after the response, so failures are held here. */
@@ -401,6 +404,7 @@ export class Desk {
       closedAt: BigInt(Date.now()),
     });
     this.inBackground(docket.ensName, () => this.naming.setDocketStatus(docket.ensName, "closed", "operator"));
+    this.inBackground(`${docket.ensName}#archive`, () => this.publishArchive(docket.key));
     return { key: docket.key, status: "closed" as DocketStatus };
   }
 
@@ -426,6 +430,7 @@ export class Desk {
     this.inBackground(docket.ensName, () =>
       this.naming.setDocketStatus(docket.ensName, "closed-for-cause", "moderator"),
     );
+    this.inBackground(`${docket.ensName}#archive`, () => this.publishArchive(docket.key));
     return { key: docket.key, status: "closed-for-cause" as DocketStatus };
   }
 
@@ -465,11 +470,78 @@ export class Desk {
     return { docket, ruling: docket.ruling ?? null, tally: result, comments };
   }
 
+  /**
+   * Uploads the case file to Swarm and points Arkiv and ENS at it. Runs after
+   * close, and is safe to run again: a docket that has a reference keeps it.
+   */
+  async publishArchive(key: Hex) {
+    return this.archiveQueue.run(async () => {
+      const bundle = await this.archive(key);
+      if (bundle.docket.swarmRef) {
+        return { swarmRef: bundle.docket.swarmRef, url: this.archiver.urlFor(bundle.docket.swarmRef) };
+      }
+      const swarmRef = await this.archiver.upload(`${bundle.docket.ensName}.json`, archiveFile(bundle));
+      await this.store.patchDocket(key, { opId: opId("archive", key), swarmRef });
+      this.inBackground(`${bundle.docket.ensName}#swarm`, () =>
+        this.naming.setDocketArchive(bundle.docket.ensName, swarmRef),
+      );
+      return { swarmRef, url: this.archiver.urlFor(swarmRef) };
+    });
+  }
+
+  /** Reads the file back from Swarm and compares it with the live record on Arkiv. */
+  async verifyArchive(key: Hex) {
+    const { docket, comments, tally: live } = await this.tally(key);
+    if (!docket.swarmRef) throw new AppError(404, "archive_missing", "This docket has no archive yet.");
+    const file = JSON.parse(await this.archiver.read(docket.swarmRef)) as {
+      docket: { rulingHash?: string };
+      comments: { key: string }[];
+      tally: { counted: number };
+    };
+    const onArkiv = new Set<string>(comments.map((comment) => comment.key));
+    return {
+      swarmRef: docket.swarmRef,
+      url: this.archiver.urlFor(docket.swarmRef),
+      commentsInFile: file.comments.length,
+      commentsOnArkiv: comments.length,
+      matches:
+        file.docket.rulingHash === docket.rulingHash &&
+        file.tally.counted === live.counted &&
+        file.comments.length === comments.length &&
+        file.comments.every((comment) => onArkiv.has(comment.key)),
+    };
+  }
+
   async stats() {
     const [base, dockets] = await Promise.all([this.store.stats(), this.store.listDockets()]);
     const tallies = await Promise.all(dockets.map((docket) => this.tally(docket.key)));
     return { ...base, countedComments: tallies.reduce((sum, item) => sum + item.tally.counted, 0) };
   }
+}
+
+/** The public case file. Stands alone: it can be recounted after the Arkiv entities expire. */
+export function archiveFile(bundle: { docket: DocketRecord; ruling: string | null; tally: Tally; comments: CommentRecord[] }) {
+  const { docket, ruling, tally: result, comments } = bundle;
+  return JSON.stringify(
+    {
+      version: 1,
+      docket: {
+        key: docket.key,
+        ensName: docket.ensName,
+        title: docket.title,
+        question: docket.question,
+        topics: docket.topics,
+        deadline: docket.deadline,
+        status: docket.status,
+        closedAt: docket.closedAt,
+        rulingHash: docket.rulingHash,
+      },
+      ruling,
+      tally: result,
+      comments: comments.map(({ opId: _op, ...comment }) => comment),
+    },
+    (_key, value) => (typeof value === "bigint" ? value.toString() : value),
+  );
 }
 
 export function toTallyComment(comment: CommentRecord) {

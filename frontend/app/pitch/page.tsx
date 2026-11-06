@@ -410,7 +410,7 @@ function DifferentSlide() {
   return (
     <div>
       <Kicker n={7} label="Why it's different" />
-      <Headline>Nobody has to trust our server.</Headline>
+      <Headline>Anyone can check the count.</Headline>
       <div className="overflow-x-auto border border-background/15">
         <table className="w-full min-w-[520px] text-sm">
           <thead>

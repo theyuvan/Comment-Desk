@@ -110,7 +110,7 @@ export function HeroSection() {
             }`}
           >
             It feels like Reddit, but every post is tied to one real human, every thread
-            concludes with a ruling, and anyone can recount the record without trusting us.
+            concludes with a ruling, and anyone can recount the record themselves.
           </p>
           
           {/* CTAs */}

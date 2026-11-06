@@ -59,7 +59,7 @@ export function CtaSection() {
                 </h2>
 
                 <p className="text-xl text-muted-foreground mb-12 leading-relaxed max-w-xl">
-                  See how Comment Desk turns public input into a record nobody has to take on faith.
+                  See how Comment Desk turns public input into a record anyone can check.
                 </p>
 
                 <div className="flex flex-col sm:flex-row items-start gap-4">

@@ -19,13 +19,14 @@ function nextPath() {
   return next?.startsWith("/") && !next.startsWith("//") ? next : null
 }
 
-function JoinFlow({ onJoined }: { onJoined: () => void }) {
+function JoinFlow({ onJoined, onReturning }: { onJoined: () => void; onReturning: () => void }) {
   const health = useHealth()
   const [handle, setHandle] = useState("")
   const [wallet, setWallet] = useState<string>()
   const [active, setActive] = useState(0)
   const [error, setError] = useState("")
   const [busy, setBusy] = useState(false)
+  const [returning, setReturning] = useState<string>()
   const rootName = health?.rootName ?? "commentdesk.eth"
 
   async function prepare(event: FormEvent) {
@@ -84,12 +85,25 @@ function JoinFlow({ onJoined }: { onJoined: () => void }) {
             Last step. World ID proves <span className="text-foreground">{handle}.{rootName}</span> belongs to one unique
             human, without revealing who you are. It can take about a minute to mint your name.
           </p>
-          <WorldVerifyButton
-            input={{ purpose: "join", handle, wallet }}
-            verifyPath="/api/world/verify/join"
-            label="Verify with World ID and join"
-            onVerified={onJoined}
-          />
+          {returning ? (
+            <Notice>
+              Welcome back. This World ID already holds <span className="font-mono">{returning}</span>, so no second name
+              was made. Sign in below with the passkey you created it with.
+            </Notice>
+          ) : (
+            <WorldVerifyButton<{ ensName: string; returning: boolean }>
+              input={{ purpose: "join", handle, wallet }}
+              verifyPath="/api/world/verify/join"
+              label="Verify with World ID and join"
+              onVerified={(result) => {
+                if (!result.returning) return onJoined()
+                // One human, one name: the passkey made just now owns nothing, so drop it.
+                signOut()
+                setReturning(result.ensName)
+                onReturning()
+              }}
+            />
+          )}
         </div>
       )}
     </div>
@@ -132,6 +146,8 @@ export default function JoinPage() {
   const router = useRouter()
   const { member, refresh } = useMember()
   const [address, setAddress] = useState<string>()
+  // Re-renders the page once a returning human's new passkey is dropped, so sign-in shows.
+  const [, setDropped] = useState(0)
 
   useEffect(() => {
     if (member) setAddress(currentWallet()?.address)
@@ -188,7 +204,7 @@ export default function JoinPage() {
       )}
       {member === null && (
         <>
-          <JoinFlow onJoined={finished} />
+          <JoinFlow onJoined={finished} onReturning={() => setDropped((count) => count + 1)} />
           {!currentWallet() && <SignIn onSignedIn={finished} />}
         </>
       )}

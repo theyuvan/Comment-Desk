@@ -11,7 +11,7 @@ The first users are most likely DAOs and online communities, because they can ad
 
 ## Can they try it today?
 
-Yes, on testnets. World ID is the one dependency that must be finished before real verification works.
+Yes, on testnets, with real World ID: production World App for joining and commenting, and production World ID Agent Pass for approving agent drafts.
 
 - **Try it:** TO FILL: deployed URL
 - **Run it locally:** follow [backend/README.md](../backend/README.md)

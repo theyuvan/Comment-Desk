@@ -22,6 +22,6 @@
 ## Honest gaps
 
 - Comment text is public plaintext. Field-level encryption is not built.
-- Every entity is signed by one publisher wallet. `$creator` proves we published a record, not that a given person wrote it. Authorship rests on the World proof reference and the member's signature, which the backend checks before publishing.
+- Every entity is signed by one publisher wallet. `$creator` proves we published a record, not that a given person wrote it. Authorship rests on the World proof reference on each comment (`idkit:` for typed, `agentpass:` for agent-drafted), which the backend checks before publishing. Comments are not signed by the member's own wallet yet, so the publisher could still invent one.
 - ENS ownership is public, so a member's name links openly to their wallet. The hash stops casual scanning of Arkiv, not someone who starts from an ENS name.
 - Members last about 182 days unless renewed. Lifetime Extension is not automated yet.

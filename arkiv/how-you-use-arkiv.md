@@ -7,7 +7,7 @@
 | Filter | Used for |
 | --- | --- |
 | `docket_key` | Loading a docket's record and recounting it |
-| `owner_hash` + `topic` + `docket_key` | Enforcing the limit of 3 comments per topic |
+| `owner_hash` + `topic` + `docket_key` | Enforcing one counted comment per member per topic (World nullifiers enforce it too) |
 | `nullifier_hash` | One identity per human |
 | `ens_name` | Handle and docket-name uniqueness |
 | `op_id` | Finding a write again after a crash or a repeated request |

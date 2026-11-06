@@ -24,7 +24,7 @@ export function HeroSection() {
   }, []);
 
   return (
-    <section className="relative min-h-screen flex flex-col justify-center overflow-hidden">
+    <section className="relative min-h-screen flex flex-col overflow-hidden">
       {/* Animated sphere background */}
       <div className="absolute right-0 top-1/2 -translate-y-1/2 w-[600px] h-[600px] lg:w-[800px] lg:h-[800px] opacity-40 pointer-events-none">
         <AnimatedSphere />
@@ -56,7 +56,7 @@ export function HeroSection() {
         ))}
       </div>
       
-      <div className="relative z-10 max-w-[1400px] mx-auto px-6 lg:px-12 py-32 lg:py-40">
+      <div className="relative z-10 w-full max-w-[1400px] mx-auto my-auto px-6 lg:px-12 pt-32 pb-12 lg:pt-36 lg:pb-16">
         {/* Eyebrow */}
         <div 
           className={`mb-8 transition-all duration-700 ${
@@ -133,24 +133,25 @@ export function HeroSection() {
         
       </div>
       
-      {/* Stats marquee - full width outside container */}
-      <div 
-        className={`absolute bottom-24 left-0 right-0 transition-all duration-700 delay-500 ${
+      {/* Stats marquee: its own band, so it never crowds the content above */}
+      <div
+        className={`relative z-10 border-y border-foreground/10 bg-background/85 backdrop-blur-sm py-6 lg:py-7 overflow-hidden [mask-image:linear-gradient(to_right,transparent,black_6%,black_94%,transparent)] transition-opacity duration-700 delay-500 ${
           isVisible ? "opacity-100" : "opacity-0"
         }`}
       >
-        <div className="flex gap-16 marquee whitespace-nowrap">
+        {/* Two identical copies, each with trailing space, so -50% loops without a jump */}
+        <div className="flex w-max marquee hover:[animation-play-state:paused] motion-reduce:animate-none whitespace-nowrap">
           {[...Array(2)].map((_, i) => (
-            <div key={i} className="flex gap-16">
+            <div key={i} aria-hidden={i > 0} className="flex shrink-0 items-center gap-16 lg:gap-24 pr-16 lg:pr-24">
               {[
                 { value: "20,000", label: "AI comments, real identities", company: "CIVICLICK" },
                 { value: "37,000", label: "fake AI comments", company: "WASHINGTON STATE" },
                 { value: "18M", label: "fake, of 22M comments", company: "FCC, 2017" },
                 { value: "0", label: "of those portals checked for a human", company: "THE GAP" },
               ].map((stat) => (
-                <div key={`${stat.company}-${i}`} className="flex items-baseline gap-4">
-                  <span className="text-4xl lg:text-5xl font-display">{stat.value}</span>
-                  <span className="text-sm text-muted-foreground">
+                <div key={`${stat.company}-${i}`} className="flex items-center gap-4">
+                  <span className="text-4xl lg:text-5xl font-display leading-none">{stat.value}</span>
+                  <span className="text-sm leading-tight text-muted-foreground">
                     {stat.label}
                     <span className="block font-mono text-xs mt-1">{stat.company}</span>
                   </span>

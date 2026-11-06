@@ -26,7 +26,9 @@ export function AgentInterview({ docketKey, onDraft }: { docketKey: string; onDr
   const [unavailable, setUnavailable] = useState(false);
   const end = useRef<HTMLDivElement>(null);
 
-  useEffect(() => end.current?.scrollIntoView({ block: "nearest" }), [turns]);
+  useEffect(() => {
+    end.current?.scrollIntoView({ block: "nearest" });
+  }, [turns]);
 
   async function send(event: FormEvent) {
     event.preventDefault();

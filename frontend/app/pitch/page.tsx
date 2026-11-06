@@ -86,29 +86,31 @@ export default function PitchPage() {
   const slide = slides[Math.min(index, last)]!
 
   return (
-    <div className="flex h-dvh flex-col bg-foreground text-background">
-      <header className="shrink-0 border-b border-background/10">
+    <div className="noise-overlay flex h-dvh flex-col bg-background text-foreground">
+      <div className="page-lines" aria-hidden="true" />
+      <header className="relative z-10 shrink-0 border-b border-foreground/10">
         <div className="mx-auto flex max-w-[1280px] items-center justify-between px-4 py-4 sm:px-8">
           <Link href="/" className="font-display text-xl tracking-tight">
             Comment Desk
           </Link>
-          <nav className="flex items-center gap-5 font-mono text-xs text-background/50">
-            <span className="text-background">Pitch</span>
-            <Link href="/dockets" className="transition-colors hover:text-background">
+          <nav className="flex items-center gap-5 font-mono text-xs text-foreground/50">
+            <span className="text-foreground">Pitch</span>
+            <Link href="/dockets" className="transition-colors hover:text-foreground">
               Open the app
             </Link>
           </nav>
         </div>
       </header>
 
-      <div ref={deck} className="flex min-h-0 flex-1 flex-col bg-foreground text-background">
-        <main className="flex min-h-0 flex-1 overflow-y-auto">
+      <div ref={deck} className="relative z-10 flex min-h-0 flex-1 flex-col bg-background text-foreground">
+        <div className="page-lines" aria-hidden="true" />
+        <main className="relative z-10 flex min-h-0 flex-1 overflow-y-auto">
           <div
             key={`${sponsor}-${index}`}
             className="m-auto w-full max-w-[1180px] px-4 py-8 duration-500 animate-in fade-in slide-in-from-bottom-2 motion-reduce:animate-none sm:px-8"
           >
             {index > 0 && (
-              <div className="mb-5 font-mono text-[10px] uppercase tracking-widest text-background/50">
+              <div className="mb-5 font-mono text-[10px] uppercase tracking-widest text-foreground/50">
                 [ {String(index + 1).padStart(2, "0")} / {String(slides.length).padStart(2, "0")} · {slide.label} ]
               </div>
             )}
@@ -116,14 +118,14 @@ export default function PitchPage() {
           </div>
         </main>
 
-        <footer className="shrink-0 border-t border-background/10">
+        <footer className="relative z-10 shrink-0 border-t border-foreground/10">
           <div className="mx-auto flex max-w-[1180px] flex-wrap items-center gap-3 px-4 py-3 sm:gap-4 sm:px-8">
-            <label className="flex items-center gap-2 font-mono text-[10px] uppercase tracking-widest text-background/50">
+            <label className="flex items-center gap-2 font-mono text-[10px] uppercase tracking-widest text-foreground/50">
               <span>Pitch for</span>
               <select
                 value={sponsor}
                 onChange={(event) => choose(event.target.value as SponsorId)}
-                className="border border-background/30 bg-foreground px-2 py-1.5 font-mono text-xs normal-case tracking-normal text-background transition-colors hover:border-background"
+                className="border border-foreground/30 bg-background px-2 py-1.5 font-mono text-xs normal-case tracking-normal text-foreground transition-colors hover:border-foreground"
               >
                 {SPONSORS.map((item) => (
                   <option key={item.id} value={item.id}>
@@ -136,7 +138,7 @@ export default function PitchPage() {
               onClick={() => go(index - 1)}
               disabled={index === 0}
               aria-label="Previous slide"
-              className="border border-background/20 p-2 transition-colors hover:border-background disabled:opacity-30"
+              className="border border-foreground/20 p-2 transition-colors hover:border-foreground disabled:opacity-30"
             >
               <ArrowLeft className="h-4 w-4" />
             </button>
@@ -147,7 +149,7 @@ export default function PitchPage() {
                   onClick={() => go(n)}
                   aria-label={`Slide ${n + 1}: ${item.label}`}
                   aria-current={n === index ? "true" : undefined}
-                  className={`h-2 transition-all ${n === index ? "w-8 bg-background" : "w-2 bg-background/20 hover:bg-background/50"}`}
+                  className={`h-2 transition-all ${n === index ? "w-8 bg-foreground" : "w-2 bg-foreground/20 hover:bg-foreground/50"}`}
                 />
               ))}
             </div>
@@ -155,17 +157,17 @@ export default function PitchPage() {
               onClick={() => go(index + 1)}
               disabled={index === last}
               aria-label="Next slide"
-              className="border border-background/20 p-2 transition-colors hover:border-background disabled:opacity-30"
+              className="border border-foreground/20 p-2 transition-colors hover:border-foreground disabled:opacity-30"
             >
               <ArrowRight className="h-4 w-4" />
             </button>
-            <span className="ml-auto hidden font-mono text-[10px] uppercase tracking-widest text-background/40 lg:inline">
+            <span className="ml-auto hidden font-mono text-[10px] uppercase tracking-widest text-foreground/40 lg:inline">
               ← → to move · F for fullscreen
             </span>
             <button
               onClick={toggleFullscreen}
               aria-label={isFullscreen ? "Exit fullscreen" : "Enter fullscreen"}
-              className="ml-auto border border-background/20 p-2 text-background/60 transition-colors hover:border-background hover:text-background lg:ml-0"
+              className="ml-auto border border-foreground/20 p-2 text-foreground/60 transition-colors hover:border-foreground hover:text-foreground lg:ml-0"
             >
               {isFullscreen ? <Minimize className="h-4 w-4" /> : <Maximize className="h-4 w-4" />}
             </button>
@@ -187,23 +189,23 @@ function Headline({ children }: { children: ReactNode }) {
 }
 
 function Grid({ className, children }: { className: string; children: ReactNode }) {
-  return <div className={`grid gap-px border border-background/15 bg-background/15 ${className}`}>{children}</div>
+  return <div className={`grid gap-px border border-foreground/15 bg-foreground/15 ${className}`}>{children}</div>
 }
 
 function Cell({ className = "", children }: { className?: string; children: ReactNode }) {
-  return <div className={`min-w-0 bg-foreground p-5 sm:p-6 ${className}`}>{children}</div>
+  return <div className={`min-w-0 bg-background p-5 sm:p-6 ${className}`}>{children}</div>
 }
 
 function Closing({ children }: { children: ReactNode }) {
-  return <p className="mt-8 max-w-2xl text-sm leading-relaxed text-background/60">{children}</p>
+  return <p className="mt-8 max-w-2xl text-sm leading-relaxed text-foreground/60">{children}</p>
 }
 
 function Table({ head, rows }: { head: string[]; rows: ReactNode[][] }) {
   return (
-    <div className="overflow-x-auto border border-background/15">
+    <div className="overflow-x-auto border border-foreground/15">
       <table className="w-full min-w-[620px] text-sm">
         <thead>
-          <tr className="border-b border-background/15 text-left font-mono text-[11px] text-background/50">
+          <tr className="border-b border-foreground/15 text-left font-mono text-[11px] text-foreground/50">
             {head.map((item) => (
               <th key={item} className="p-3 font-normal sm:p-4">
                 {item}
@@ -213,9 +215,9 @@ function Table({ head, rows }: { head: string[]; rows: ReactNode[][] }) {
         </thead>
         <tbody>
           {rows.map((row, n) => (
-            <tr key={n} className="border-b border-background/15 last:border-b-0">
+            <tr key={n} className="border-b border-foreground/15 last:border-b-0">
               {row.map((cell, m) => (
-                <td key={m} className={`p-3 sm:p-4 ${m === 0 ? "" : "text-background/70"}`}>
+                <td key={m} className={`p-3 sm:p-4 ${m === 0 ? "" : "text-foreground/70"}`}>
                   {cell}
                 </td>
               ))}
@@ -228,21 +230,21 @@ function Table({ head, rows }: { head: string[]; rows: ReactNode[][] }) {
 }
 
 const Yes = () => <Check className="h-4 w-4" aria-label="Allowed" />
-const No = () => <Minus className="h-4 w-4 text-background/30" aria-label="Blocked" />
+const No = () => <Minus className="h-4 w-4 text-foreground/30" aria-label="Blocked" />
 
 function Title({ tagline, description, points }: { tagline: string; description: string; points: [string, string][] }) {
   return (
     <div className="text-center">
-      <div className="mb-8 font-mono text-[10px] uppercase tracking-widest text-background/50">[ ETHGlobal Mumbai · November 2026 ]</div>
+      <div className="mb-8 font-mono text-[10px] uppercase tracking-widest text-foreground/50">[ ETHGlobal Mumbai · November 2026 ]</div>
       <h1 className="font-display leading-none tracking-tight" style={{ fontSize: "clamp(3.25rem, 11vw, 9rem)" }}>
         Comment Desk
       </h1>
       <p className="mt-8 font-display text-2xl tracking-tight md:text-4xl">{tagline}</p>
-      <p className="mx-auto mt-5 max-w-2xl text-sm leading-relaxed text-background/60">{description}</p>
+      <p className="mx-auto mt-5 max-w-2xl text-sm leading-relaxed text-foreground/60">{description}</p>
       <Grid className="mx-auto mt-12 max-w-4xl grid-cols-1 text-left md:grid-cols-3">
         {points.map(([name, detail]) => (
           <Cell key={name} className="text-xs leading-relaxed">
-            <span className="font-semibold">{name}</span> <span className="text-background/60">{detail}</span>
+            <span className="font-semibold">{name}</span> <span className="text-foreground/60">{detail}</span>
           </Cell>
         ))}
       </Grid>
@@ -264,7 +266,7 @@ function Problem({ gap }: { gap: ReactNode }) {
           <Cell key={source}>
             <div className="font-display text-4xl tracking-tight sm:text-5xl">{stat}</div>
             <div className="mt-4 text-sm">{source}</div>
-            <div className="mt-2 text-xs leading-relaxed text-background/60">{detail}</div>
+            <div className="mt-2 text-xs leading-relaxed text-foreground/60">{detail}</div>
           </Cell>
         ))}
       </Grid>
@@ -290,9 +292,9 @@ function Product() {
       <Grid className="grid-cols-1 sm:grid-cols-2 lg:grid-cols-4">
         {steps.map(([title, detail], n) => (
           <Cell key={title}>
-            <div className="mb-3 font-mono text-xs text-background/40">0{n + 1}</div>
+            <div className="mb-3 font-mono text-xs text-foreground/40">0{n + 1}</div>
             <div className="mb-2 font-display text-2xl">{title}</div>
-            <div className="text-xs leading-relaxed text-background/60">{detail}</div>
+            <div className="text-xs leading-relaxed text-foreground/60">{detail}</div>
           </Cell>
         ))}
       </Grid>
@@ -306,8 +308,8 @@ function Cards({ items }: { items: [string, string, string][] }) {
       {items.map(([title, detail, result]) => (
         <Cell key={title} className="flex flex-col">
           <div className="mb-3 font-display text-2xl leading-tight">{title}</div>
-          <div className="flex-1 text-xs leading-relaxed text-background/60">{detail}</div>
-          <div className="mt-5 border-t border-background/15 pt-3 font-mono text-[11px] leading-relaxed text-background/70">{result}</div>
+          <div className="flex-1 text-xs leading-relaxed text-foreground/60">{detail}</div>
+          <div className="mt-5 border-t border-foreground/15 pt-3 font-mono text-[11px] leading-relaxed text-foreground/70">{result}</div>
         </Cell>
       ))}
     </Grid>
@@ -346,18 +348,18 @@ function LiveRecord() {
           {cards.map(([value, label]) => (
             <Cell key={label}>
               <div className="font-display text-5xl tracking-tight sm:text-6xl">{value}</div>
-              <div className="mt-3 text-sm text-background/70">{label}</div>
+              <div className="mt-3 text-sm text-foreground/70">{label}</div>
             </Cell>
           ))}
         </Grid>
       ) : (
-        <p className="font-mono text-xs text-background/50">
+        <p className="font-mono text-xs text-foreground/50">
           {stats === null ? "[ BACKEND OFFLINE ] Live numbers appear when the API is running." : "Loading live numbers…"}
         </p>
       )}
       <Closing>
         Rabdi testnet, chain 7794095. Includes test data.{" "}
-        <Link href="/dockets" className="text-background underline underline-offset-4">
+        <Link href="/dockets" className="text-foreground underline underline-offset-4">
           Open a docket and press &quot;Recount this yourself&quot;
         </Link>{" "}
         to watch a browser rebuild the tally straight from Arkiv.
@@ -369,7 +371,7 @@ function LiveRecord() {
 function WorldStatus() {
   const { health } = useLive()
   if (health?.world !== "dev") return null
-  return <p className="mt-4 font-mono text-[11px] text-background/50">This build simulates World ID. The real gates are on the integration branch.</p>
+  return <p className="mt-4 font-mono text-[11px] text-foreground/50">This build simulates World ID. The real gates are on the integration branch.</p>
 }
 
 /* ----------------------------------------------------------------- decks */
@@ -391,7 +393,7 @@ const ARKIV_DECK: Slide[] = [
   },
   {
     label: "The problem",
-    body: <Problem gap={<>The numbers sit in a private database where an admin can change any row. <span className="text-background">Nobody outside can check the count.</span></>} />,
+    body: <Problem gap={<>The numbers sit in a private database where an admin can change any row. <span className="text-foreground">Nobody outside can check the count.</span></>} />,
   },
   { label: "What we built", body: <Product /> },
   {
@@ -448,7 +450,7 @@ const ARKIV_DECK: Slide[] = [
         />
         <Closing>
           When a case closes, the ruling and every comment move to Swarm as one case file, and the reference is saved on the docket entity.{" "}
-          <span className="text-background">Live on Arkiv, permanent on Swarm.</span>
+          <span className="text-foreground">Live on Arkiv, permanent on Swarm.</span>
         </Closing>
       </div>
     ),
@@ -472,7 +474,7 @@ const ENS_DECK: Slide[] = [
   },
   {
     label: "The problem",
-    body: <Problem gap={<>Accounts are cheap, and they can be bought. Moderator powers usually mean full control. <span className="text-background">Identity and permissions both need to live outside the platform.</span></>} />,
+    body: <Problem gap={<>Accounts are cheap, and they can be bought. Moderator powers usually mean full control. <span className="text-foreground">Identity and permissions both need to live outside the platform.</span></>} />,
   },
   { label: "What we built", body: <Product /> },
   {
@@ -483,7 +485,7 @@ const ENS_DECK: Slide[] = [
           Not a row in our table.
           <br />A name you can resolve.
         </Headline>
-        <div className="border border-background/15">
+        <div className="border border-foreground/15">
           {(
             [
               ["commentdesk.eth", "the platform", "Registry and root name"],
@@ -493,11 +495,11 @@ const ENS_DECK: Slide[] = [
               ["comment-1.truck-rule.maya…", "one comment", "Owned by its author"],
             ] as const
           ).map(([name, role, detail], n) => (
-            <div key={name} className="flex flex-col gap-1 border-b border-background/15 p-3 last:border-b-0 md:flex-row md:items-center md:justify-between md:gap-6 sm:px-5">
+            <div key={name} className="flex flex-col gap-1 border-b border-foreground/15 p-3 last:border-b-0 md:flex-row md:items-center md:justify-between md:gap-6 sm:px-5">
               <code className="min-w-0 break-all font-mono text-sm" style={{ paddingLeft: `${Math.min(n, 3) * 0.9}rem` }}>
                 {name}
               </code>
-              <span className="shrink-0 font-mono text-[11px] text-background/50 md:text-right">
+              <span className="shrink-0 font-mono text-[11px] text-foreground/50 md:text-right">
                 {role} · {detail}
               </span>
             </div>
@@ -557,7 +559,7 @@ const ENS_DECK: Slide[] = [
         />
         <Closing>
           Live on Sepolia. See{" "}
-          <a href="https://sepolia.app.ens.domains/commentdesk.eth" target="_blank" rel="noreferrer" className="text-background underline underline-offset-4">
+          <a href="https://sepolia.app.ens.domains/commentdesk.eth" target="_blank" rel="noreferrer" className="text-foreground underline underline-offset-4">
             commentdesk.eth in the ENS app
           </a>
           .
@@ -584,7 +586,7 @@ const WORLD_DECK: Slide[] = [
   },
   {
     label: "The problem",
-    body: <Problem gap={<>In every case the portal asked whether a submission arrived. It never asked <span className="text-background">whether a real, unique human sent it.</span></>} />,
+    body: <Problem gap={<>In every case the portal asked whether a submission arrived. It never asked <span className="text-foreground">whether a real, unique human sent it.</span></>} />,
   },
   { label: "What we built", body: <Product /> },
   {
@@ -602,7 +604,7 @@ const WORLD_DECK: Slide[] = [
         />
         <Closing>
           Dockets set the level: strict needs Proof of Human, soft takes a Selfie Check. Our built-in agent interviews the member and has one tool,{" "}
-          <span className="text-background">save_draft, so it literally can't post.</span>
+          <span className="text-foreground">save_draft, so it literally can't post.</span>
         </Closing>
       </div>
     ),
@@ -654,7 +656,7 @@ const WORLD_DECK: Slide[] = [
           ]}
         />
         <Closing>
-          The matching principle: <span className="text-background">the check gets stronger as the words move further from direct human judgment.</span>
+          The matching principle: <span className="text-foreground">the check gets stronger as the words move further from direct human judgment.</span>
         </Closing>
         <WorldStatus />
       </div>

@@ -137,8 +137,9 @@ export function Shell({ children }: { children: ReactNode }) {
   const { member } = useMember()
 
   return (
-    <div className="flex min-h-dvh flex-col bg-background text-foreground">
-      <header className="border-b border-foreground/10">
+    <div className="noise-overlay flex min-h-dvh flex-col bg-background text-foreground">
+      <div className="page-lines" aria-hidden="true" />
+      <header className="relative z-10 border-b border-foreground/10">
         <div className="mx-auto flex max-w-[1000px] flex-wrap items-center justify-between gap-x-6 gap-y-2 px-6 py-4">
           <Link href="/" className="font-display text-xl tracking-tight">
             Comment Desk
@@ -167,9 +168,11 @@ export function Shell({ children }: { children: ReactNode }) {
           </nav>
         </div>
       </header>
-      <Banner health={health} />
-      <main className="mx-auto w-full max-w-[1000px] flex-1 px-6 py-12">{children}</main>
-      <footer className="border-t border-foreground/10">
+      <div className="relative z-10">
+        <Banner health={health} />
+      </div>
+      <main className="relative z-10 mx-auto w-full max-w-[1000px] flex-1 px-6 py-12">{children}</main>
+      <footer className="relative z-10 border-t border-foreground/10">
         <div className="mx-auto flex max-w-[1000px] flex-wrap items-center justify-between gap-x-6 gap-y-1 px-6 py-5 font-mono text-xs text-muted-foreground">
           <span>Every voice is a real human. Every count is yours to check.</span>
           <Link href="/pitch" className="transition-colors hover:text-foreground">

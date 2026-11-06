@@ -7,7 +7,8 @@
     "dev": "tsx watch --env-file-if-exists=.env src/server.ts",
     "start": "tsx --env-file-if-exists=.env src/server.ts",
     "typecheck": "tsc --noEmit",
-    "test": "tsx --test test/*.test.ts"
+    "test": "tsx --test test/*.test.ts",
+    "agent": "tsx scripts/agent.ts"
   },
   "dependencies": {
     "@commentdesk/shared": "^0.1.0",

@@ -87,7 +87,12 @@ export function Notice({ children, tone = "info" }: { children: ReactNode; tone?
 }
 
 export function Eyebrow({ children }: { children: ReactNode }) {
-  return <div className="mb-3 font-mono text-xs text-muted-foreground">{children}</div>
+  return (
+    <div className="mb-4 flex items-center gap-3 font-mono text-xs text-muted-foreground">
+      <span className="h-px w-8 bg-foreground/30" />
+      {children}
+    </div>
+  )
 }
 
 /** World, Arkiv and ENS: the three real services a wait is usually for. */
@@ -164,43 +169,68 @@ function Banner({ health }: { health: Health | null | undefined }) {
   return null
 }
 
+/** The same fade-up-on-mount the landing page uses for its hero and sections. */
+function Reveal({ children }: { children: ReactNode }) {
+  const [visible, setVisible] = useState(false)
+  useEffect(() => {
+    const frame = requestAnimationFrame(() => setVisible(true))
+    return () => cancelAnimationFrame(frame)
+  }, [])
+  return (
+    <div className={`transition-all duration-700 ${visible ? "translate-y-0 opacity-100" : "translate-y-3 opacity-0"}`}>
+      {children}
+    </div>
+  )
+}
+
 export function Shell({ children }: { children: ReactNode }) {
   const health = useHealth()
   const { member } = useMember()
 
   return (
     <div className="noise-overlay flex min-h-dvh flex-col bg-background text-foreground">
-      <div className="page-lines" aria-hidden="true" />
-      <header className="relative z-10 border-b border-foreground/10">
-        <div className="mx-auto flex max-w-[1000px] flex-wrap items-center justify-between gap-x-6 gap-y-2 px-6 py-4">
-          <Link href="/" className="font-display text-xl tracking-tight">
+      <div className="dot-grid" aria-hidden="true" />
+      <header className="sticky top-0 z-20 border-b border-foreground/10 bg-background/80 backdrop-blur-xl">
+        <div className="mx-auto flex max-w-[1000px] flex-wrap items-center justify-between gap-x-6 gap-y-2 px-6 py-5">
+          <Link href="/" className="font-display text-xl tracking-tight transition-opacity hover:opacity-70">
             Comment Desk
           </Link>
           <nav aria-label="Main" className="flex flex-wrap items-center gap-x-5 gap-y-1 text-sm text-muted-foreground">
-            <Link href="/dockets" className="transition-colors hover:text-foreground">
+            <Link href="/dockets" className="group relative transition-colors hover:text-foreground">
               Dockets
+              <span className="absolute -bottom-1 left-0 h-px w-0 bg-foreground transition-all duration-300 group-hover:w-full" />
             </Link>
-            <Link href="/dockets/new" className="transition-colors hover:text-foreground">
+            <Link href="/dockets/new" className="group relative transition-colors hover:text-foreground">
               Open a docket
+              <span className="absolute -bottom-1 left-0 h-px w-0 bg-foreground transition-all duration-300 group-hover:w-full" />
             </Link>
-            <Link href="/names" className="transition-colors hover:text-foreground">
+            <Link href="/names" className="group relative transition-colors hover:text-foreground">
               ENS names
+              <span className="absolute -bottom-1 left-0 h-px w-0 bg-foreground transition-all duration-300 group-hover:w-full" />
             </Link>
-            <Link href="/activity" className="transition-colors hover:text-foreground">
+            <Link href="/activity" className="group relative transition-colors hover:text-foreground">
               On-chain activity
+              <span className="absolute -bottom-1 left-0 h-px w-0 bg-foreground transition-all duration-300 group-hover:w-full" />
             </Link>
             {member && (
-              <Link href="/agent" className="transition-colors hover:text-foreground">
+              <Link href="/agent" className="group relative transition-colors hover:text-foreground">
                 Your agent
+                <span className="absolute -bottom-1 left-0 h-px w-0 bg-foreground transition-all duration-300 group-hover:w-full" />
               </Link>
             )}
             {member ? (
-              <Link href="/join" className="max-w-[240px] truncate font-mono text-xs text-foreground">
+              <Link
+                href="/join"
+                className="max-w-[240px] truncate rounded-full border border-foreground/15 px-3 py-1 font-mono text-xs text-foreground transition-colors hover:border-foreground"
+              >
                 {member.ensName}
                 {member.nameStatus === "creating" && <span className="text-muted-foreground"> · minting…</span>}
               </Link>
             ) : (
-              <Link href="/join" className="text-foreground">
+              <Link
+                href="/join"
+                className="rounded-full bg-foreground px-4 py-1.5 text-background transition-colors hover:bg-foreground/90"
+              >
                 Join
               </Link>
             )}
@@ -211,14 +241,18 @@ export function Shell({ children }: { children: ReactNode }) {
       <div className="relative z-10">
         <Banner health={health} />
       </div>
-      <main className="relative z-10 mx-auto w-full max-w-[1000px] flex-1 px-6 py-12">{children}</main>
+      <main className="relative z-10 mx-auto w-full max-w-[1000px] flex-1 px-6 py-12 lg:py-16">
+        <Reveal>{children}</Reveal>
+      </main>
       <footer className="relative z-10 border-t border-foreground/10">
-        <div className="mx-auto flex max-w-[1000px] flex-wrap items-center justify-between gap-x-6 gap-y-2 px-6 py-5 font-mono text-xs text-muted-foreground">
+        <div className="mx-auto flex max-w-[1000px] flex-wrap items-center justify-between gap-x-6 gap-y-3 px-6 py-6 font-mono text-xs text-muted-foreground">
           <span>Every voice is a real human. Every count is yours to check.</span>
-          <BuiltWith />
-          <Link href="/pitch" className="transition-colors hover:text-foreground">
-            The pitch
-          </Link>
+          <div className="flex items-center gap-5">
+            <BuiltWith />
+            <Link href="/pitch" className="transition-colors hover:text-foreground">
+              The pitch
+            </Link>
+          </div>
         </div>
       </footer>
     </div>

@@ -79,10 +79,10 @@ export default function DocketsPage() {
 
       <ul className="divide-y divide-foreground/10 border-y border-foreground/10 empty:hidden">
         {visible?.map((docket) => (
-          <li key={docket.key}>
+          <li key={docket.key} className="group">
             <Link href={`/dockets/${docket.key}`} className="block px-1 py-5 transition-colors hover:bg-foreground/[0.03]">
               <div className="flex flex-wrap items-baseline justify-between gap-x-6 gap-y-1">
-                <h2 className="font-display text-2xl tracking-tight">{docket.title}</h2>
+                <h2 className="font-display text-2xl tracking-tight transition-transform duration-500 group-hover:translate-x-1.5">{docket.title}</h2>
                 {docket.phase === "open" ? (
                   <span className="font-mono text-xs text-muted-foreground">
                     <Countdown to={docket.deadline} />

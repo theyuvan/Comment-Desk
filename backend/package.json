@@ -15,7 +15,8 @@
     "recount": "tsx scripts/recount.ts",
     "probe:arkiv": "tsx scripts/probe-arkiv.ts",
     "check": "tsx scripts/check-setup.ts",
-    "dev:memory": "tsx watch scripts/dev-memory.ts"
+    "dev:memory": "tsx watch scripts/dev-memory.ts",
+    "emancipate:ens": "tsx --env-file=.env scripts/emancipate-ens.ts"
   },
   "keywords": [],
   "author": "",

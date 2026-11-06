@@ -14,9 +14,10 @@ import { AppError, SerialQueue } from "../core.ts";
 import {
   ADMIN_SET_TEXT,
   COIN_TYPE_ETH,
+  CREATOR_DOCKET_KEYS,
   MEMBER_TOKEN_ROLES,
   OPERATOR_DOCKET_KEYS,
-  OPERATOR_REGISTRY_ROLES,
+  OPERATOR_SUBNAME_ROLES,
   RESOLVER_OWNER_ROLES,
   SEPOLIA,
   TEXT_KEYS,
@@ -24,7 +25,7 @@ import {
   resolverAbi,
   userRegistryAbi,
 } from "./constants.ts";
-import { dnsEncode, docketResolverSalt, labelhash, platformResolverSalt, registrySalt } from "./names.ts";
+import { dnsEncode, docketResolverSalt, ownedResolverSalt, registrySalt } from "./names.ts";
 
 export type DocketRecords = {
   title: string;
@@ -67,9 +68,12 @@ const textSetter = (key: string) =>
  * scripts/simulate-ens.ts. Change them together.
  *
  *   commentdesk.eth          UserRegistry, shared platform resolver
- *   maya.commentdesk.eth     token owned by the member, UserRegistry on first docket
+ *   maya.commentdesk.eth     non-transferable token, the member's own resolver and registry
  *   rule.maya.commentdesk... token owned by the member, its own PermissionedResolver
  *   comment-1.rule.maya...   records on that resolver, served by wildcard, no token
+ *
+ * Member registries are emancipated from birth: the operator can only register
+ * and renew, so it can never change or delete a name once it exists.
  */
 export class EnsNaming implements Naming {
   readonly rootName: string;
@@ -107,10 +111,6 @@ export class EnsNaming implements Naming {
 
   private registryOf(name: string) {
     return this.predict(registrySalt(name));
-  }
-
-  private platformResolver() {
-    return this.predict(platformResolverSalt(this.operator.address));
   }
 
   private async isDeployed(address: Address) {
@@ -151,109 +151,103 @@ export class EnsNaming implements Naming {
     return BigInt(Math.floor(Date.now() / 1000)) + ONE_YEAR;
   }
 
-  /** Safe to call twice: a name already held by this wallet counts as done. */
+  /**
+   * Everything a member's name needs exists before the name does, so the
+   * operator never needs a role that could touch it afterwards. Each step is
+   * skipped if already done, which makes a failed join safe to retry.
+   */
   registerMember(label: string, wallet: Address): Promise<string> {
     return this.queue.run(async () => {
       const name = `${label}.${this.rootName}`;
-      const registry = await this.registryOf(this.rootName);
-      const resolver = await this.platformResolver();
-      const owner = await this.ownerOf(registry, label);
-      if (owner !== zeroAddress && owner.toLowerCase() !== wallet.toLowerCase()) {
+      const root = await this.registryOf(this.rootName);
+      const owner = await this.ownerOf(root, label);
+      if (owner !== zeroAddress) {
+        if (owner.toLowerCase() === wallet.toLowerCase()) return name;
         throw new AppError(409, "handle_taken", `${name} is already taken.`);
       }
-      if (owner === zeroAddress) {
-        await this.send(registry, userRegistryAbi, "register", [
-          label, wallet, zeroAddress, resolver, MEMBER_TOKEN_ROLES, this.expiry(),
+
+      // The member's own resolver. They hold every role and the operator holds none.
+      const resolverSalt = ownedResolverSalt(wallet);
+      const resolver = await this.predict(resolverSalt);
+      if (!(await this.isDeployed(resolver))) {
+        const init = encodeFunctionData({
+          abi: resolverAbi as Abi,
+          functionName: "initialize",
+          args: [
+            [{ account: wallet, roleBitmap: RESOLVER_OWNER_ROLES }],
+            [setAddress(name, wallet), setAddress(`agent.${name}`, wallet)],
+          ],
+        });
+        await this.send(SEPOLIA.verifiableFactory, factoryAbi, "deployProxy", [
+          SEPOLIA.permissionedResolverImpl, resolverSalt, init,
         ]);
-        await this.send(resolver, resolverAbi, "multicall", [[setAddress(name, wallet)]]);
       }
+
+      const registry = await this.registryOf(name);
+      if (!(await this.isDeployed(registry))) {
+        const init = encodeFunctionData({
+          abi: userRegistryAbi as Abi,
+          functionName: "initialize",
+          args: [[{ account: this.operator.address, roleBitmap: OPERATOR_SUBNAME_ROLES }]],
+        });
+        await this.send(SEPOLIA.verifiableFactory, factoryAbi, "deployProxy", [
+          SEPOLIA.userRegistryImpl, registrySalt(name), init,
+        ]);
+      }
+      await this.send(registry, userRegistryAbi, "setParent", [root, label]);
+
+      await this.send(root, userRegistryAbi, "register", [
+        label, wallet, registry, resolver, MEMBER_TOKEN_ROLES, this.expiry(),
+      ]);
       return name;
     });
-  }
-
-  private async ensureMemberRegistry(memberName: string): Promise<Address> {
-    const registry = await this.registryOf(memberName);
-    if (!(await this.isDeployed(registry))) {
-      const init = encodeFunctionData({
-        abi: userRegistryAbi as Abi,
-        functionName: "initialize",
-        args: [[{ account: this.operator.address, roleBitmap: OPERATOR_REGISTRY_ROLES }]],
-      });
-      await this.send(SEPOLIA.verifiableFactory, factoryAbi, "deployProxy", [
-        SEPOLIA.userRegistryImpl, registrySalt(memberName), init,
-      ]);
-    }
-    const root = await this.registryOf(this.rootName);
-    const attached = (await this.client.readContract({
-      address: root,
-      abi: userRegistryAbi as Abi,
-      functionName: "getSubregistry",
-      args: [labelOf(memberName)],
-    })) as Address;
-    if (attached.toLowerCase() !== registry.toLowerCase()) {
-      await this.send(root, userRegistryAbi, "setSubregistry", [labelhash(labelOf(memberName)), registry]);
-    }
-    return registry;
   }
 
   openDocket(input: { memberName: string; label: string; wallet: Address; records: DocketRecords }): Promise<string> {
     return this.queue.run(async () => {
       const { memberName, label, wallet, records } = input;
       const name = `${label}.${memberName}`;
-      const registry = await this.ensureMemberRegistry(memberName);
+      const registry = await this.registryOf(memberName);
       if ((await this.ownerOf(registry, label)) !== zeroAddress) {
         throw new AppError(409, "docket_taken", `${name} already exists.`);
       }
 
-      // The creator owns every record. The operator holds text admin only for this deploy.
+      // Enhanced Access Control, set once in the deployment. During `initialize`
+      // the caller is the factory, so it holds text admin for this one transaction
+      // and gives it up at the end. Nobody holds it afterwards, so these grants
+      // can never be widened by the creator, the operator or a moderator.
       const salt = docketResolverSalt(wallet, name);
       const resolver = await this.predict(salt);
+      const grant = (key: string, account: Address) =>
+        encodeFunctionData({
+          abi: resolverAbi as Abi,
+          functionName: "grantSetterRoles",
+          args: [textSetter(key), account],
+        });
       const init = encodeFunctionData({
         abi: resolverAbi as Abi,
         functionName: "initialize",
         args: [
-          [
-            { account: wallet, roleBitmap: RESOLVER_OWNER_ROLES },
-            { account: this.operator.address, roleBitmap: ADMIN_SET_TEXT },
-          ],
+          [{ account: SEPOLIA.verifiableFactory, roleBitmap: ADMIN_SET_TEXT }],
           [
             setText(name, TEXT_KEYS.status, "open"),
             setText(name, TEXT_KEYS.title, records.title),
             setText(name, TEXT_KEYS.deadline, new Date(Number(records.deadline)).toISOString()),
             setText(name, TEXT_KEYS.topics, records.topics.join(",")),
             setText(name, TEXT_KEYS.credential, records.credentialLevel),
+            ...CREATOR_DOCKET_KEYS.map((key) => grant(key, wallet)),
+            ...OPERATOR_DOCKET_KEYS.map((key) => grant(key, this.operator.address)),
+            ...[...new Set(this.moderatorAddresses())].map((moderator) => grant(TEXT_KEYS.status, moderator)),
+            encodeFunctionData({
+              abi: resolverAbi as Abi,
+              functionName: "revokeRootRoles",
+              args: [ADMIN_SET_TEXT, SEPOLIA.verifiableFactory],
+            }),
           ],
         ],
       });
       await this.send(SEPOLIA.verifiableFactory, factoryAbi, "deployProxy", [
         SEPOLIA.permissionedResolverImpl, salt, init,
-      ]);
-
-      // Enhanced Access Control: scope the operator and moderators to single keys,
-      // then give up the admin role so neither can ever reach the creator's records.
-      const moderators = [...new Set(this.moderatorAddresses())];
-      await this.send(resolver, resolverAbi, "multicall", [
-        [
-          ...OPERATOR_DOCKET_KEYS.map((key) =>
-            encodeFunctionData({
-              abi: resolverAbi as Abi,
-              functionName: "grantSetterRoles",
-              args: [textSetter(key), this.operator.address],
-            }),
-          ),
-          ...moderators.map((moderator) =>
-            encodeFunctionData({
-              abi: resolverAbi as Abi,
-              functionName: "grantSetterRoles",
-              args: [textSetter(TEXT_KEYS.status), moderator],
-            }),
-          ),
-          encodeFunctionData({
-            abi: resolverAbi as Abi,
-            functionName: "revokeRootRoles",
-            args: [ADMIN_SET_TEXT, this.operator.address],
-          }),
-        ],
       ]);
 
       await this.send(registry, userRegistryAbi, "register", [
@@ -310,13 +304,18 @@ export class EnsNaming implements Naming {
   ensureAgentName(memberName: string, wallet: Address): Promise<string> {
     return this.queue.run(async () => {
       const name = `agent.${memberName}`;
-      const registry = await this.ensureMemberRegistry(memberName);
+      const registry = await this.registryOf(memberName);
       if ((await this.ownerOf(registry, "agent")) === zeroAddress) {
-        const resolver = await this.platformResolver();
+        // The member's resolver already holds this name's record, written when they joined.
+        const resolver = (await this.client.readContract({
+          address: await this.registryOf(this.rootName),
+          abi: userRegistryAbi as Abi,
+          functionName: "getResolver",
+          args: [labelOf(memberName)],
+        })) as Address;
         await this.send(registry, userRegistryAbi, "register", [
           "agent", wallet, zeroAddress, resolver, 0n, this.expiry(),
         ]);
-        await this.send(resolver, resolverAbi, "multicall", [[setAddress(name, wallet)]]);
       }
       return name;
     });

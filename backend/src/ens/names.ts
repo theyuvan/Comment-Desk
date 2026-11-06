@@ -61,7 +61,8 @@ export function docketResolverSalt(owner: Address, docketName: string, version =
   );
 }
 
-export function platformResolverSalt(owner: Address, version = 0n): bigint {
+/** keccak256("OwnedResolver", owner, version): ENS's per-account resolver scheme. */
+export function ownedResolverSalt(owner: Address, version = 0n): bigint {
   return BigInt(
     keccak256(
       encodeAbiParameters(

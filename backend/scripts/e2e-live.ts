@@ -9,7 +9,7 @@ import { createPublicClient, encodeFunctionData, http, keccak256, parseAbi, stri
 import { generatePrivateKey, privateKeyToAccount } from "viem/accounts";
 import { sepolia } from "viem/chains";
 import { DOMAIN, TYPES, type ActionName } from "../src/auth.ts";
-import { SEPOLIA, TEXT_KEYS, userRegistryAbi, resolverAbi } from "../src/ens/constants.ts";
+import { SEPOLIA, TEXT_KEYS, universalHelperAbi, userRegistryAbi, resolverAbi } from "../src/ens/constants.ts";
 import { dnsEncode, registrySalt } from "../src/ens/names.ts";
 
 const API = process.env.E2E_API ?? "http://localhost:8787";
@@ -168,6 +168,77 @@ check("moderator may edit status", await attempt(moderator, TEXT_KEYS.status, "c
 check("moderator may not edit the title", !(await attempt(moderator, TEXT_KEYS.title, "hijacked")));
 check("operator may not edit the title", !(await attempt(operator, TEXT_KEYS.title, "hijacked")));
 check("creator may edit the title", await attempt(creator.address, TEXT_KEYS.title, "their own record"));
+
+const attemptOn = (account: Address, name: string, key: string) =>
+  client
+    .call({
+      account,
+      to: docketResolver,
+      data: encodeFunctionData({ abi: resolverAbi as Abi, functionName: "setText", args: [dnsEncode(name), key, "x"] }),
+    })
+    .then(() => true)
+    .catch(() => false);
+check("creator may not rewrite a comment's author", !(await attemptOn(creator.address, commentName, TEXT_KEYS.author)));
+check("operator may write comment records", await attemptOn(operator, commentName, TEXT_KEYS.author));
+
+step("Permissioned Registry on live contracts");
+const readRegistry = (functionName: string, args: unknown[] = []) =>
+  client.readContract({ address: memberRegistry, abi: userRegistryAbi as Abi, functionName, args });
+check("member registry is emancipated", (await readRegistry("isEmancipated")) === true);
+const canonical = (await client.readContract({
+  address: SEPOLIA.universalHelper,
+  abi: universalHelperAbi as Abi,
+  functionName: "findCanonicalName",
+  args: [memberRegistry],
+})) as Hex;
+const dotted = (() => {
+  const bytes = Buffer.from(canonical.slice(2), "hex");
+  const labels: string[] = [];
+  for (let at = 0; at < bytes.length && bytes[at] !== 0; at += bytes[at]! + 1) labels.push(bytes.subarray(at + 1, at + 1 + bytes[at]!).toString("utf8"));
+  return labels.join(".");
+})();
+check("ENS finds the canonical name from the registry", dotted === memberName, dotted);
+
+const rootRegistry = (await client.readContract({
+  address: SEPOLIA.verifiableFactory,
+  abi: parseAbi(["function predictProxyAddress(address deployer, uint256 salt) view returns (address)"]),
+  functionName: "predictProxyAddress",
+  args: [operator, registrySalt("commentdesk.eth")],
+})) as Address;
+const tokenId = (await client.readContract({
+  address: rootRegistry,
+  abi: userRegistryAbi as Abi,
+  functionName: "findTokenId",
+  args: [creatorHandle],
+})) as bigint;
+const sellName = await client
+  .call({
+    account: creator.address,
+    to: rootRegistry,
+    data: encodeFunctionData({ abi: userRegistryAbi as Abi, functionName: "unsafeTransfer", args: [voter.address, tokenId, "0x"] }),
+  })
+  .then(() => true)
+  .catch(() => false);
+check("a member cannot sell their name", !sellName);
+const memberResolver = (await client.readContract({
+  address: rootRegistry,
+  abi: userRegistryAbi as Abi,
+  functionName: "getResolver",
+  args: [creatorHandle],
+})) as Address;
+const repoint = await client
+  .call({
+    account: operator,
+    to: memberResolver,
+    data: encodeFunctionData({
+      abi: resolverAbi as Abi,
+      functionName: "setAddress",
+      args: [dnsEncode(memberName), 60n, voter.address],
+    }),
+  })
+  .then(() => true)
+  .catch(() => false);
+check("operator cannot repoint a member's address", !repoint);
 
 step("Conclude the case");
 const wait = Number(deadline) - Date.now() + 3000;

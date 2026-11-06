@@ -21,9 +21,10 @@ import {
 import { privateKeyToAccount } from "viem/accounts";
 import { sepolia } from "viem/chains";
 import {
-  OPERATOR_REGISTRY_ROLES,
+  ROOT_SETUP_ROLES,
   RESOLVER_OWNER_ROLES,
   SEPOLIA,
+  TEXT_KEYS,
   ZERO_BYTES32,
   ethRegistrarAbi,
   ethRegistryAbi,
@@ -32,7 +33,7 @@ import {
   resolverAbi,
   userRegistryAbi,
 } from "../src/ens/constants.ts";
-import { platformResolverSalt, registrySalt } from "../src/ens/names.ts";
+import { dnsEncode, ownedResolverSalt, registrySalt } from "../src/ens/names.ts";
 
 const key = process.env.ENS_OPERATOR_PRIVATE_KEY as Hex | undefined;
 if (!key) throw new Error("Set ENS_OPERATOR_PRIVATE_KEY. npm run setup:wallets creates one.");
@@ -67,7 +68,7 @@ async function main() {
   if (balance === 0n) throw new Error("Fund the operator with Sepolia ETH first.");
 
   const registry = await predict(registrySalt(rootName));
-  const resolver = await predict(platformResolverSalt(account.address));
+  const resolver = await predict(ownedResolverSalt(account.address));
 
   const available = await readRegistrar<boolean>("isAvailable", [label]);
   if (available) {
@@ -117,7 +118,7 @@ async function main() {
       encodeFunctionData({
         abi: userRegistryAbi as Abi,
         functionName: "initialize",
-        args: [[{ account: account.address, roleBitmap: OPERATOR_REGISTRY_ROLES }]],
+        args: [[{ account: account.address, roleBitmap: ROOT_SETUP_ROLES }]],
       }),
     ]);
   }
@@ -126,7 +127,7 @@ async function main() {
     console.log("Deploying the platform resolver");
     await send(SEPOLIA.verifiableFactory, factoryAbi, "deployProxy", [
       SEPOLIA.permissionedResolverImpl,
-      platformResolverSalt(account.address),
+      ownedResolverSalt(account.address),
       encodeFunctionData({
         abi: resolverAbi as Abi,
         functionName: "initialize",
@@ -135,10 +136,31 @@ async function main() {
     ]);
   }
 
+  // The back pointer. ENS uses it to verify the registry chain and find canonical names.
+  const [parent] = (await client.readContract({
+    address: registry,
+    abi: userRegistryAbi as Abi,
+    functionName: "getParent",
+  })) as [Address, string];
+  if (parent === zeroAddress) {
+    console.log("Linking the registry to its parent");
+    await send(registry, userRegistryAbi, "setParent", [SEPOLIA.ethRegistry, label]);
+  }
+
+  const description = "Verifiable public input. One real human per voice, and a record anyone can recount.";
+  const current = await client.getEnsText({
+    name: rootName,
+    key: TEXT_KEYS.title,
+    universalResolverAddress: SEPOLIA.universalResolver,
+  }).catch(() => null);
+  if (current !== description) {
+    console.log("Setting the root name's records");
+    await send(resolver, resolverAbi, "setText", [dnsEncode(rootName), TEXT_KEYS.title, description]);
+  }
+
   console.log(`\nDone. ${rootName}`);
   console.log(`  registry ${registry}`);
   console.log(`  resolver ${resolver}`);
-  if ((zeroAddress as string) === registry) throw new Error("Unexpected zero registry");
 }
 
 main().catch((error) => {

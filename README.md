@@ -230,38 +230,45 @@ Owner keys are hashed, not raw — same principle as the rest of this session's 
 
 ### World ID — real verification, not the track's mocked-proof allowance
 
-The track permits mocked proofs for the hackathon, but this project uses real ones throughout — Device-level verification through the actual production World App, which needs no Orb and no hardware beyond a phone.
+The track permits mocked proofs for the hackathon, but this project uses real ones: production World App for IDKit, production World IdP for Agent Pass. Full setup, credential rationale and demo script: [docs/world-id.md](docs/world-id.md). Debriefs: [docs/world-debrief.md](docs/world-debrief.md).
+
+**As built (IDKit 4.6 — the IDKit 2 `IDKitWidget` / `verifyCloudProof` API is gone).** "Device-level" from the original plan isn't used: `deviceLegacy` is deprecated in IDKit 4 and doesn't prove uniqueness. Join uses Proof of Human; each docket's credential level picks Proof of Human (strict) or Selfie Check (soft).
 
 ```bash
-npm i @worldcoin/idkit
+npm i @worldcoin/idkit            # frontend
+npm i @worldcoin/idkit-core       # backend (signRequest, hashSignal)
 ```
 
-```tsx
-import { IDKitWidget, VerificationLevel } from "@worldcoin/idkit";
-
-<IDKitWidget
-  app_id={process.env.NEXT_PUBLIC_WORLD_ID_APP_ID}   // a PRODUCTION app, not staging
-  action={process.env.NEXT_PUBLIC_WORLD_ID_ACTION_ID}
-  signal={submissionKey}                              // the member id (join) or draft key (agent confirm)
-  verification_level={VerificationLevel.Device}        // real, no Orb required
-  handleVerify={(proof) => submitToBackend(proof, submissionKey)}
->
-  {({ open }) => <button onClick={open}>Verify with World ID</button>}
-</IDKitWidget>
-```
-
-Backend verification is the same real call used throughout this session's work — `verifyCloudProof`, hitting World's actual Developer Portal API, never a stub:
+The backend decides action/signal/credential and signs the RP context ([backend/src/world/idkit.ts](backend/src/world/idkit.ts)):
 
 ```typescript
-import { verifyCloudProof, type IVerifyResponse } from "@worldcoin/idkit";
+import { signRequest } from "@worldcoin/idkit-core/signing";
 
-const verifyRes = (await verifyCloudProof(
-  proof,
-  process.env.WORLD_ID_APP_ID,      // production app id
-  process.env.WORLD_ID_ACTION_ID,
-  submissionKey
-)) as IVerifyResponse;
+const sig = signRequest({ signingKeyHex: WORLD_ID_SIGNING_KEY, action, ttl: 300 });
+// stored under sig.nonce with the action, signal (member + exact text hash) and credential
 ```
+
+The browser only carries the proof ([frontend/src/world/WorldVerifyButton.tsx](frontend/src/world/WorldVerifyButton.tsx)):
+
+```tsx
+import { IDKitRequestWidget, proofOfHuman, selfieCheck } from "@worldcoin/idkit";
+
+<IDKitRequestWidget
+  open={open} onOpenChange={setOpen}
+  app_id={req.app_id} action={req.action} rp_context={req.rp_context}
+  environment="production" allow_legacy_proofs={req.allow_legacy_proofs}
+  require_user_presence={req.require_user_presence}
+  preset={req.credential === "selfie" ? selfieCheck({ signal: req.signal }) : proofOfHuman({ signal: req.signal })}
+  handleVerify={(result) => api("/api/world/verify/comment", { body: { result } })}  // throws on denial
+  onSuccess={...} onError={...}
+/>
+```
+
+The backend checks the result against the request it issued (nonce, environment, action, credential, `signal_hash == hashSignal(signal)`), then World's Developer Portal (`POST https://developer.world.org/api/v4/verify/{rp_id}`, payload forwarded as-is). It then reserves the per-action nullifier.
+
+**Agent Pass** is World IdP OIDC step-up ([backend/src/world/agent-pass.ts](backend/src/world/agent-pass.ts)): `max_age=0`, `prompt=login`, essential `acr` (`https://world.org/oidc/acr/orb`), PKCE + state, and a nonce derived from the draft hash, so the World-signed ID token commits to the exact text approved. Cancel, expiry, a changed draft, a stale `auth_time`, a lower `acr` or a different World account each discard the draft.
+
+The handoff to the Arkiv/ENS half is one interface, `WorldGateHost` ([shared/src/world-gate.ts](shared/src/world-gate.ts)): `onMemberVerified({ humanVerified: true, proofRef, … })` and `onCommentVerified({ humanVerified: true, proofRef, … } | { agentConfirmed: true, draftKey, proofRef, … })`.
 
 **Critical setup trap**: the app's environment (staging vs. production), the action's environment, and which client scans the QR code (Simulator vs. real World App) must all match. A production action scanned by the Simulator — or a staging action scanned by the real World App — silently returns zero proofs and looks exactly like a frontend bug. Register one production action for the real demo; keep a separate staging action only if you need repeatable automated testing.
 

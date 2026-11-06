@@ -38,12 +38,15 @@ export type DocketRecords = {
 /** The live rules of a docket, as its ENS records state them right now. */
 export type DocketRules = { status: string | null; credential: string | null; agents: string | null };
 
+/** What any wallet sees for a name: where it resolves, its resolver, and Comment Desk's records. */
+export type NameInfo = { name: string; address: Address | null; resolver: Address | null; records: Record<string, string> };
+
 /** Services depend on this, so they can be tested without a network. */
 export interface Naming {
   readonly rootName: string;
   registerMember(label: string, wallet: Address): Promise<string>;
-  /** Whether a member name exists on ENS yet. */
-  hasName(memberName: string): Promise<boolean>;
+  /** Whether a name exists on ENS yet. */
+  hasName(name: string): Promise<boolean>;
   openDocket(input: { memberName: string; label: string; wallet: Address; records: DocketRecords }): Promise<string>;
   linkDocket(docketName: string, arkivKey: Hex): Promise<void>;
   writeComment(input: {
@@ -58,6 +61,7 @@ export interface Naming {
   ensureAgentName(memberName: string, wallet: Address): Promise<string>;
   walletOf(memberName: string): Promise<Address>;
   docketRules(docketName: string): Promise<DocketRules>;
+  nameInfo(name: string): Promise<NameInfo>;
   setDocketStatus(docketName: string, status: string, by: "operator" | "moderator"): Promise<void>;
   setDocketArchive(docketName: string, swarmRef: string): Promise<void>;
 }
@@ -353,10 +357,28 @@ export class EnsNaming implements Naming {
     });
   }
 
-  /** Whether a member name is registered yet, read straight from the root registry. */
-  async hasName(memberName: string): Promise<boolean> {
-    const root = await this.registryOf(this.rootName);
-    return (await this.ownerOf(root, labelOf(memberName))) !== zeroAddress;
+  /** Read through the Universal Resolver, so it shows exactly what a wallet or the ENS app would. */
+  async nameInfo(name: string): Promise<NameInfo> {
+    const universalResolverAddress = SEPOLIA.universalResolver;
+    const [address, resolver] = await Promise.all([
+      this.client.getEnsAddress({ name, universalResolverAddress }).catch(() => null),
+      this.client.getEnsResolver({ name, universalResolverAddress }).catch(() => null),
+    ]);
+    const records: Record<string, string> = {};
+    await Promise.all(
+      Object.values(TEXT_KEYS).map(async (key) => {
+        const value = await this.client.getEnsText({ name, key, universalResolverAddress }).catch(() => null);
+        if (value) records[key] = value;
+      }),
+    );
+    return { name, address: address ?? null, resolver: resolver ?? null, records };
+  }
+
+  /** Whether a name is registered yet, read straight from its parent's registry. */
+  async hasName(name: string): Promise<boolean> {
+    const registry = await this.registryOf(parentOf(name));
+    if (!(await this.isDeployed(registry))) return false;
+    return (await this.ownerOf(registry, labelOf(name))) !== zeroAddress;
   }
 
   /** Arkiv never holds a raw wallet, and ENS already publishes this one. */

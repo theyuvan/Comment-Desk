@@ -57,9 +57,25 @@ export type Receipt = {
   error?: string
 }
 
+export type NameKind = "root" | "member" | "agent" | "docket" | "comment"
+
+/** One ENS name under the root, read live from Sepolia, with the names directly under it. */
+export type NameNode = {
+  name: string
+  kind: NameKind
+  parent: string | null
+  address: Address | null
+  resolver: Address | null
+  records: Record<string, string>
+  arkivKey: string | null
+  nameStatus?: "creating" | "failed" | "ready"
+  children: { name: string; kind: NameKind; detail?: string }[]
+}
+
 /** Public explorers for each kind of record. */
 export const explorer = {
   sepoliaTx: (hash: string) => `https://sepolia.etherscan.io/tx/${hash}`,
+  sepoliaAddress: (address: string) => `https://sepolia.etherscan.io/address/${address}`,
   arkivEntity: (key: string) => `https://rabdi.explorer.arkiv.network/entity/${key}`,
   swarm: (ref: string) => `https://api.gateway.ethswarm.org/bzz/${ref}/`,
 }
@@ -151,6 +167,7 @@ export const api = {
   tally: (key: string) => request<Tally>(`/api/dockets/${key}/tally`),
   rules: (key: string) => request<DocketRules>(`/api/dockets/${key}/rules`),
   verifyArchive: (key: string) => request<ArchiveCheck>(`/api/dockets/${key}/archive/verify`),
+  name: (name: string) => request<NameNode>(`/api/names/${encodeURIComponent(name)}`),
   activity: (filter: { subject?: string; limit?: number } = {}) => {
     const query = new URLSearchParams()
     if (filter.subject) query.set("subject", filter.subject)

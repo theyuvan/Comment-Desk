@@ -91,6 +91,7 @@ export interface ArkivStore {
   findMemberByOwner(ownerHash: string): Promise<MemberRecord | undefined>;
   findMemberByNullifier(nullifierHash: string): Promise<MemberRecord | undefined>;
   findMemberByEns(ensName: string): Promise<MemberRecord | undefined>;
+  listMembers(): Promise<MemberRecord[]>;
   createDocket(input: NewDocket): Promise<Hex>;
   getDocket(key: Hex): Promise<DocketRecord | undefined>;
   findDocketByEns(ensName: string): Promise<DocketRecord | undefined>;
@@ -284,6 +285,11 @@ export class LiveArkivStore implements ArkivStore {
   async findMemberByEns(ensName: string) {
     const row = await this.first(MemberSchema, "ens_name", ensName);
     return row ? toMember(row) : undefined;
+  }
+
+  async listMembers() {
+    const rows = await this.all(MemberSchema);
+    return rows.map(toMember).sort((a, b) => Number(b.joinedAt - a.joinedAt));
   }
 
   async createDocket(input: NewDocket): Promise<Hex> {

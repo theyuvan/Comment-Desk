@@ -218,6 +218,11 @@ export default function JoinPage() {
           <p className="text-lg">
             <EnsLink name={member.ensName} />
           </p>
+          <p className="text-sm">
+            <Link href={`/names?name=${encodeURIComponent(member.ensName)}`} className="underline underline-offset-4">
+              See your name on ENS: who owns it, its resolver, your agent and your dockets
+            </Link>
+          </p>
           <p className="text-sm leading-relaxed text-muted-foreground">
             {walletKind() === "passkey"
               ? "Secured by your passkey. No key is stored on this device."

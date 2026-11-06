@@ -157,6 +157,9 @@ export function Shell({ children }: { children: ReactNode }) {
             <Link href="/dockets/new" className="transition-colors hover:text-foreground">
               Open a docket
             </Link>
+            <Link href="/names" className="transition-colors hover:text-foreground">
+              ENS names
+            </Link>
             <Link href="/activity" className="transition-colors hover:text-foreground">
               On-chain activity
             </Link>

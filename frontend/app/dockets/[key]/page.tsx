@@ -409,6 +409,9 @@ export default function DocketPage() {
         <EnsLink name={creatorName} />
         <span aria-hidden="true">›</span>
         <EnsLink name={docket.ensName} />
+        <Link href={`/names?name=${encodeURIComponent(docket.ensName)}`} className="ml-2 underline underline-offset-4 hover:text-foreground">
+          See its ENS records and every comment name
+        </Link>
       </nav>
       <p className="mb-10 max-w-2xl text-lg leading-relaxed">{docket.question}</p>
 

@@ -55,6 +55,9 @@ export class MemoryStore implements ArkivStore {
   async findMemberByEns(ensName: string) {
     return this.members.find((item) => item.ensName === ensName);
   }
+  async listMembers() {
+    return [...this.members].reverse();
+  }
   async createDocket({ expiresOn: _expiresOn, ...input }: NewDocket) {
     const key = nextKey();
     this.dockets.push({ ...input, key, expiresAt: 5000n });
@@ -112,6 +115,13 @@ export class MemoryNaming implements Naming {
   }
   async hasName(memberName: string) {
     return this.wallets.has(memberName);
+  }
+  async nameInfo(name: string) {
+    const rules = this.rules.get(name);
+    const records: Record<string, string> = {};
+    if (rules?.status) records.status = rules.status;
+    if (rules?.credential) records["commentdesk.credential"] = rules.credential;
+    return { name, address: this.wallets.get(name) ?? null, resolver: null, records };
   }
   async walletOf(memberName: string) {
     return this.wallets.get(memberName)!;

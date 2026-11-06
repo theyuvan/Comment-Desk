@@ -621,6 +621,55 @@ export class Desk {
     };
   }
 
+  /**
+   * One name in the tree under the root: its live ENS records, the Arkiv record behind it,
+   * and the names directly under it. The ENS app can't list ENSv2 subnames, so this does.
+   */
+  async nameTree(name: string) {
+    const root = this.naming.rootName;
+    if (name !== root && !name.endsWith(`.${root}`)) {
+      throw new AppError(404, "not_comment_desk", `${name} is not under ${root}.`);
+    }
+    const depth = name.split(".").length - root.split(".").length;
+    const kind =
+      depth === 0 ? "root" : depth === 1 ? "member" : depth === 2 ? (name.startsWith("agent.") ? "agent" : "docket") : "comment";
+    const parent = depth === 0 ? null : name.slice(name.indexOf(".") + 1);
+    const info = await this.naming.nameInfo(name);
+
+    let arkivKey: string | null = null;
+    let children: { name: string; kind: string; detail?: string }[] = [];
+    if (kind === "root") {
+      children = (await this.store.listMembers()).map((member) => ({ name: member.ensName, kind: "member" }));
+    } else if (kind === "member") {
+      arkivKey = (await this.store.findMemberByEns(name))?.key ?? null;
+      const dockets = (await this.store.listDockets()).filter(
+        (docket) => docket.ensName.slice(docket.ensName.indexOf(".") + 1) === name,
+      );
+      const agent = `agent.${name}`;
+      // Registered, not just resolvable: the member's resolver holds the agent's record from the start.
+      const hasAgent = await this.naming.hasName(agent).catch(() => false);
+      children = [
+        ...(hasAgent ? [{ name: agent, kind: "agent", detail: "Posts the member's agent-drafted comments" }] : []),
+        ...dockets.map((docket) => ({ name: docket.ensName, kind: "docket", detail: docket.title })),
+      ];
+    } else if (kind === "docket") {
+      const docket = await this.store.findDocketByEns(name);
+      arkivKey = docket?.key ?? null;
+      if (docket) {
+        children = (await this.store.listComments(docket.key)).map((comment) => ({
+          name: comment.ensName,
+          kind: "comment",
+          detail: `${comment.topic} · ${comment.sentiment} · by ${comment.authorEns}`,
+        }));
+      }
+    } else if (kind === "comment") {
+      const docket = parent ? await this.store.findDocketByEns(parent) : undefined;
+      const comment = docket ? (await this.store.listComments(docket.key)).find((item) => item.ensName === name) : undefined;
+      arkivKey = comment?.key ?? null;
+    }
+    return { ...info, kind, parent, arkivKey, nameStatus: kind === "member" ? this.nameStatus(name) : undefined, children };
+  }
+
   async stats() {
     const [base, dockets] = await Promise.all([this.store.stats(), this.store.listDockets()]);
     const tallies = await Promise.all(dockets.map((docket) => this.tally(docket.key)));

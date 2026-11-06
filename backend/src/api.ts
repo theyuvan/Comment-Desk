@@ -98,6 +98,8 @@ export function createApi(deps: {
   app.get("/api/health", (context) => context.json({ ok: true, mode, world, rootName, publisher: publisher.address, chainId: publisher.chainId }));
   app.get("/api/stats", async () => send(await desk.stats()));
   app.get("/api/ens/failures", (context) => context.json(desk.ensFailures()));
+  // One ENS name under the root, with its live records and the names under it.
+  app.get("/api/names/:name", async (context) => send(await desk.nameTree(context.req.param("name").toLowerCase())));
   // Public receipts: World checks, Arkiv entities and Sepolia transactions, newest first.
   app.get("/api/activity", (context) => {
     const subject = context.req.query("subject") || undefined;

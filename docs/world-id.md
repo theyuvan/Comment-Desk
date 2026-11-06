@@ -39,9 +39,12 @@ posts it only by approving that exact text with Agent Pass. The result is publis
   toward or away from the majority.
 - **Interviews stay in memory and expire** (`AGENT_INTERVIEW_TTL_SECONDS`). Only the approved comment
   becomes public.
-- Model: Gemini through `GEMINI_API_KEY`, `gemini-3.5-flash` by default (`AGENT_MODEL`). `ANTHROPIC_API_KEY` works instead.
-  Without a key the agent is off, and members bring their own agent with a token from
-  `/agent` (`npm run agent -w backend -- draft …`).
+- Model: tries Groq (`GROQ_API_KEY`, OpenAI-compatible tool calling), then Gemini (`GEMINI_API_KEY`,
+  `gemini-3.5-flash` by default via `AGENT_MODEL`), then Claude (`ANTHROPIC_API_KEY`), in that order on
+  every turn. Any subset of the three keys can be set; if a provider fails or is out of quota the next
+  one answers instead, so a single provider's outage doesn't strand a conversation. Without any key the
+  agent is off, and members bring their own agent with a token from `/agent`
+  (`npm run agent -w backend -- draft …`).
 
 **Why the record is useful to researchers:** every counted comment on Arkiv carries its author type
 (`human` / `agent`), its position, and a proof reference. That reference is `idkit:…` for a typed
@@ -99,7 +102,7 @@ Agent Pass ([backend/src/world/agent-pass.ts](../backend/src/world/agent-pass.ts
 3. Create `backend/.env` from `backend/.env.example`:
    - Fill in the World values. Use `openssl rand -hex 32` for `SESSION_SECRET`.
    - Get the Arkiv and ENS keys from the team privately.
-   - Optionally set `GEMINI_API_KEY` for the drafting agent.
+   - Optionally set `GROQ_API_KEY`, `GEMINI_API_KEY` and/or `ANTHROPIC_API_KEY` for the drafting agent.
    - Leave `WORLD_GATE` empty: `dev` swaps in an unverified stand-in.
 4. `frontend/.env.local`: `WORLD_BACKEND_URL=http://localhost:4000`.
 5. Install and run, in two terminals:

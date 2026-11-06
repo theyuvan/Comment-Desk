@@ -10,6 +10,14 @@ import { Label } from "@/components/ui/label"
 import { Textarea } from "@/components/ui/textarea"
 import { request, type CredentialLevel, type Member } from "@/lib/api"
 import { signAction, textHash, typedData } from "@/lib/wallet"
+import { ReceiptPanel, useReceipt } from "@/components/app/receipt"
+
+/** Live steps for the docket being opened: its registry, its resolver, its name, then Arkiv. */
+function OpeningProgress({ name, since }: { name: string; since: number }) {
+  const receipt = useReceipt(name, { kind: "docket", waiting: true, since })
+  if (!receipt) return <Loading>Starting…</Loading>
+  return <ReceiptPanel title={`Creating ${name}`} receipt={receipt} />
+}
 
 function PolicyStep({ onSigned }: { onSigned: () => void }) {
   const [error, setError] = useState("")
@@ -52,14 +60,19 @@ function DocketForm({ member }: { member: Member }) {
   const [question, setQuestion] = useState("")
   const [topicText, setTopicText] = useState("")
   const [deadline, setDeadline] = useState("")
-  const [credentialLevel, setCredentialLevel] = useState<CredentialLevel>("soft")
+  // Proof of Human by default: most Orb-verified people hold it, fewer hold Selfie Check.
+  const [credentialLevel, setCredentialLevel] = useState<CredentialLevel>("strict")
   const [error, setError] = useState("")
   const [busy, setBusy] = useState(false)
+  const [startedAt, setStartedAt] = useState(0)
+  const naming = member.nameStatus === "creating"
 
   async function submit(event: FormEvent) {
     event.preventDefault()
     setBusy(true)
     setError("")
+    // A little slack for the server's clock.
+    setStartedAt(Date.now() - 5000)
     try {
       const topics = topicText
         .split(",")
@@ -125,10 +138,24 @@ function DocketForm({ member }: { member: Member }) {
           </select>
         </div>
       </div>
+      {naming && (
+        <Notice>
+          Your name {member.ensName} is still being created on ENS. Your docket lives under it, so you can open one as
+          soon as it&apos;s ready. This page updates by itself.
+        </Notice>
+      )}
       {error && <Notice tone="error">{error}</Notice>}
-      <Button type="submit" disabled={busy} className="rounded-full">
-        {busy ? "Deploying its resolver. This takes about a minute…" : "Open this docket"}
+      <Button type="submit" disabled={busy || naming} className="rounded-full">
+        {naming ? "Waiting for your name…" : busy ? "Creating the docket on ENS and Arkiv…" : "Open this docket"}
       </Button>
+      {busy && label && (
+        <div className="space-y-2">
+          <p className="text-sm text-muted-foreground">
+            Each step below is a real transaction. Opening a docket takes about a minute.
+          </p>
+          <OpeningProgress name={`${label}.${member.ensName}`} since={startedAt} />
+        </div>
+      )}
     </form>
   )
 }

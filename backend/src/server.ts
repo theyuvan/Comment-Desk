@@ -1,5 +1,6 @@
 import { join } from "node:path";
 import { serve } from "@hono/node-server";
+import { activity } from "./activity.ts";
 import type { Address } from "viem";
 import { privateKeyToAccount } from "viem/accounts";
 import { createApi } from "./api.ts";
@@ -14,6 +15,7 @@ import { devWorldRoutes } from "./world-dev.ts";
 import { startWorldGates } from "./world/start.ts";
 
 const config = loadConfig();
+activity.persistTo(join(config.DATA_DIR, "activity.json"));
 
 const writer = new ArkivWriter({
   account: privateKeyToAccount(config.ARKIV_PRIVATE_KEY),

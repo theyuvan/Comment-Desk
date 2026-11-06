@@ -110,6 +110,9 @@ export class MemoryNaming implements Naming {
     this.wallets.set(name, wallet);
     return name;
   }
+  async hasName(memberName: string) {
+    return this.wallets.has(memberName);
+  }
   async walletOf(memberName: string) {
     return this.wallets.get(memberName)!;
   }

@@ -293,7 +293,7 @@ const INCIDENTS = [
   },
 ] as const
 
-export function ArkivEvidence() {
+export function ProblemEvidence() {
   return (
     <div>
       <Big>Not a claim. Three documented incidents.</Big>

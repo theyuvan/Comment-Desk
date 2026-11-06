@@ -19,10 +19,10 @@ import {
   type LucideIcon,
 } from "lucide-react"
 import { api, type Health } from "@/lib/api"
-import { ArkivEvidence, EntityGraph, LiveRecount, TamperTest } from "@/components/pitch/arkiv"
+import { ProblemEvidence, EntityGraph, LiveRecount, TamperTest } from "@/components/pitch/arkiv"
 import { EnsGate, NameTree, RoleSwitch } from "@/components/pitch/ens"
 import { BreakIt, CheckLadder, ProofBinding } from "@/components/pitch/world"
-import { Big, Flood } from "@/components/pitch/shared"
+import { Big } from "@/components/pitch/shared"
 import { Globe } from "@/components/pitch/globe"
 import { ThemeToggle } from "@/components/theme-toggle"
 import { BuiltWith, SponsorMark } from "@/components/visuals/sponsor-marks"
@@ -310,11 +310,11 @@ function WorldNote() {
 
 /* ----------------------------------------------------------------- decks */
 
-const problem: Slide = { label: "The problem", body: <Flood /> }
+const problem: Slide = { label: "The problem", body: <ProblemEvidence /> }
 
 const ARKIV_DECK: Slide[] = [
   { label: "Comment Desk", body: <Title tagline="A count anyone can rebuild." visual={<EntityGraph bare />} sponsor="arkiv" /> },
-  { label: "The problem", body: <ArkivEvidence /> },
+  problem,
   { label: "The record", body: <Stage title="Four entities. One public record."><EntityGraph /></Stage> },
   {
     label: "Key features",

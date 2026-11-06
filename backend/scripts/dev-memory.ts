@@ -8,16 +8,17 @@
 import { serve } from "@hono/node-server";
 import { createApi } from "../src/api.ts";
 import { Desk } from "../src/desk.ts";
-import { devWorldGate } from "../src/world.ts";
+import { DeskWorldHost } from "../src/host/desk-host.ts";
+import { devWorldRoutes } from "../src/world-dev.ts";
 import { MemoryArchiver, MemoryNaming, MemoryStore } from "../test/helpers.ts";
 
 const store = new MemoryStore();
 const policyVersion = "1";
+const moderators = (process.env.MODERATOR_ADDRESSES ?? "").split(",").map((item) => item.trim().toLowerCase()).filter(Boolean) as `0x${string}`[];
 const desk = new Desk(
   store,
   new MemoryNaming(),
-  devWorldGate,
-  { policyVersion, graceDays: 7, maxCommentsPerTopic: 3, moderators: [] },
+  { policyVersion, graceDays: 7, maxCommentsPerTopic: 1, moderators },
   new MemoryArchiver(),
 );
 
@@ -29,7 +30,10 @@ const app = createApi({
   mode: "memory",
   policyVersion,
   rootName: "commentdesk.eth",
+  moderators,
+  world: "dev",
 });
+app.route("/", devWorldRoutes({ desk, store, host: new DeskWorldHost(desk, store) }));
 
 serve({ fetch: app.fetch, port: Number(process.env.PORT ?? 8787) }, ({ port }) => {
   console.log(`In-memory demo API on http://localhost:${port}. Nothing is written to any network.`);

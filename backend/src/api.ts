@@ -5,14 +5,14 @@ import { z } from "zod";
 import type { ArkivStore, CommentRecord, DocketRecord, DocketStatus, MemberRecord } from "./arkiv/store.ts";
 import { DOMAIN, TYPES } from "./auth.ts";
 import { AppError, ownerHash } from "./core.ts";
-import { docketBodyHash, submissionKey, type Desk } from "./desk.ts";
+import { docketBodyHash, type Desk } from "./desk.ts";
 import type { Publisher } from "./recount-client.ts";
 
 const hex = z.custom<Hex>((value) => typeof value === "string" && isHex(value));
 const bytes32 = z.custom<Hex>((value) => typeof value === "string" && isHex(value, { strict: true }) && value.length === 66);
 const millis = z.coerce.bigint().positive();
 
-const JoinBody = z.object({ handle: z.string(), issuedAt: millis, signature: hex, worldProof: z.unknown() });
+const JoinPolicyBody = z.object({ handle: z.string(), issuedAt: millis, signature: hex });
 const PolicyBody = z.object({ issuedAt: millis, signature: hex });
 const OpenBody = z.object({
   label: z.string(),
@@ -20,25 +20,9 @@ const OpenBody = z.object({
   question: z.string(),
   topics: z.array(z.string()),
   deadline: millis,
-  credentialLevel: z.enum(["proof_of_human", "proof_of_presence"]),
+  credentialLevel: z.enum(["strict", "soft"]),
   issuedAt: millis,
   signature: hex,
-});
-const CommentBody = z.object({
-  topic: z.string(),
-  sentiment: z.string(),
-  stance: z.string(),
-  authorType: z.enum(["human", "agent"]),
-  issuedAt: millis,
-  signature: hex,
-  worldProof: z.unknown(),
-});
-const KeyBody = z.object({
-  wallet: z.string().refine((value) => isAddress(value)),
-  topic: z.string(),
-  sentiment: z.string(),
-  stanceHash: bytes32,
-  authorType: z.enum(["human", "agent"]),
 });
 const CloseBody = z.object({ ruling: z.string(), issuedAt: millis, signature: hex });
 const ModerateBody = z.object({ reason: z.string(), issuedAt: millis, signature: hex });
@@ -68,8 +52,11 @@ export function createApi(deps: {
   mode: "live" | "memory";
   policyVersion: string;
   rootName: string;
+  moderators: string[];
+  /** "dev" while the stand-in in world-dev.ts is mounted, "world" once the real gates run. */
+  world: "dev" | "world";
 }) {
-  const { desk, store, publisher, mode, policyVersion, rootName } = deps;
+  const { desk, store, publisher, mode, policyVersion, rootName, world, moderators } = deps;
   const app = new Hono();
 
   const send = (value: unknown, status = 200) =>
@@ -97,7 +84,7 @@ export function createApi(deps: {
     return context.json({ error: "internal", message: "Something went wrong." }, 500);
   });
 
-  app.get("/api/health", (context) => context.json({ ok: true, mode, rootName, publisher: publisher.address, chainId: publisher.chainId }));
+  app.get("/api/health", (context) => context.json({ ok: true, mode, world, rootName, publisher: publisher.address, chainId: publisher.chainId }));
   app.get("/api/stats", async () => send(await desk.stats()));
   app.get("/api/ens/failures", (context) => context.json(desk.ensFailures()));
 
@@ -115,9 +102,9 @@ export function createApi(deps: {
     }),
   );
 
-  app.post("/api/members", async (context) => {
-    const body = JoinBody.parse(await context.req.json());
-    return send(await desk.join({ ...body, proof: body.worldProof }), 201);
+  app.post("/api/policies/join", async (context) => {
+    const { key: policy, ensName } = await desk.acceptJoinPolicy(JoinPolicyBody.parse(await context.req.json()));
+    return send({ policy, ensName }, 201);
   });
 
   app.get("/api/members/by-wallet/:wallet", async (context) => {
@@ -129,7 +116,11 @@ export function createApi(deps: {
       store.findPolicy(hash, "docket-creation"),
     ]);
     if (!member) throw new AppError(404, "not_a_member", "This wallet has not joined.");
-    return send({ ...memberView(member), canOpenDockets: Boolean(creatorPolicy) });
+    return send({
+      ...memberView(member),
+      canOpenDockets: Boolean(creatorPolicy),
+      isModerator: moderators.includes(wallet.toLowerCase()),
+    });
   });
 
   app.post("/api/policies/docket-creation", async (context) => {
@@ -165,32 +156,6 @@ export function createApi(deps: {
   app.get("/api/dockets/:key/comments", async (context) => {
     const comments = await store.listComments(key(context.req.param("key")));
     return send(comments.map(commentView));
-  });
-
-  /**
-   * The value a World proof must be bound to: the signal for humans, the draft
-   * key for agents. Change one character of the comment and this changes.
-   */
-  app.post("/api/dockets/:key/submission-key", async (context) => {
-    const body = KeyBody.parse(await context.req.json());
-    return context.json({
-      submissionKey: submissionKey({
-        docket: key(context.req.param("key")),
-        topic: body.topic,
-        sentiment: body.sentiment,
-        stanceHash: body.stanceHash,
-        authorType: body.authorType,
-        owner: ownerHash(body.wallet as Address),
-      }),
-    });
-  });
-
-  app.post("/api/dockets/:key/comments", async (context) => {
-    const body = CommentBody.parse(await context.req.json());
-    return send(
-      await desk.submitComment({ ...body, docket: key(context.req.param("key")), proof: body.worldProof }),
-      201,
-    );
   });
 
   app.get("/api/dockets/:key/tally", async (context) => {

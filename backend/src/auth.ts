@@ -10,6 +10,7 @@ export const TYPES = {
     { name: "policyVersion", type: "string" },
     { name: "issuedAt", type: "uint64" },
   ],
+  SignIn: [{ name: "issuedAt", type: "uint64" }],
   AcceptDocketPolicy: [
     { name: "policyVersion", type: "string" },
     { name: "issuedAt", type: "uint64" },

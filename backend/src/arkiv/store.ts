@@ -87,6 +87,7 @@ export interface ArkivStore {
   createPolicy(input: NewPolicy): Promise<Hex>;
   findPolicy(ownerHash: string, policy: PolicyName): Promise<PolicyRecord | undefined>;
   createMember(input: NewMember): Promise<Hex>;
+  getMember(key: Hex): Promise<MemberRecord | undefined>;
   findMemberByOwner(ownerHash: string): Promise<MemberRecord | undefined>;
   findMemberByNullifier(nullifierHash: string): Promise<MemberRecord | undefined>;
   findMemberByEns(ensName: string): Promise<MemberRecord | undefined>;
@@ -262,6 +263,12 @@ export class LiveArkivStore implements ArkivStore {
       (wallet, params) => wallet.createEntity(MemberSchema, values, options, params),
     );
     return result.entityKey;
+  }
+
+  async getMember(key: Hex) {
+    const page = await this.select(MemberSchema).where(eq("$key", keyValue(key))).limit(1).fetch();
+    const row = page.entities[0] as never as AnyRow | undefined;
+    return row ? toMember(row) : undefined;
   }
 
   async findMemberByOwner(ownerHash: string) {

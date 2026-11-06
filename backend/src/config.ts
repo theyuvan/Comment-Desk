@@ -27,7 +27,7 @@ const schema = z.object({
   /** Comma-separated wallets allowed to moderate. */
   MODERATOR_ADDRESSES: z.string().default(""),
   GRACE_DAYS: z.coerce.number().positive().default(7),
-  MAX_COMMENTS_PER_TOPIC: z.coerce.number().int().positive().default(3),
+  MAX_COMMENTS_PER_TOPIC: z.coerce.number().int().positive().default(1),
   POLICY_VERSION: z.string().default("1"),
 
   /** Unset until the World gate lands. "dev" enables the clearly labelled stand-in. */

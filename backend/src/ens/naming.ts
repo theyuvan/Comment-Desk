@@ -50,6 +50,7 @@ export interface Naming {
     wallet: Address;
   }): Promise<void>;
   ensureAgentName(memberName: string, wallet: Address): Promise<string>;
+  walletOf(memberName: string): Promise<Address>;
   setDocketStatus(docketName: string, status: string, by: "operator" | "moderator"): Promise<void>;
   setDocketArchive(docketName: string, swarmRef: string): Promise<void>;
 }
@@ -319,6 +320,16 @@ export class EnsNaming implements Naming {
         ],
       ]);
     });
+  }
+
+  /** Arkiv never holds a raw wallet, and ENS already publishes this one. */
+  async walletOf(memberName: string): Promise<Address> {
+    const wallet = await this.client.getEnsAddress({
+      name: memberName,
+      universalResolverAddress: SEPOLIA.universalResolver,
+    });
+    if (!wallet) throw new AppError(502, "ens_unresolved", `${memberName} did not resolve.`);
+    return wallet;
   }
 
   /** agent.maya.commentdesk.eth: human and agent authorship as two resolvable names. */

@@ -1,8 +1,6 @@
 import { afterEach, describe, expect, it, vi } from "vitest";
 import { sign, harness, newWallet, settle } from "./helpers.ts";
-import { AppError, opId, ownerHash, textHash } from "../src/core.ts";
-import { submissionKey } from "../src/desk.ts";
-import { WorldDenied } from "../src/world.ts";
+import { AppError, textHash } from "../src/core.ts";
 
 const code = (expected: string) => expect.objectContaining({ code: expected });
 
@@ -16,6 +14,13 @@ describe("joining", () => {
     expect(store.members).toHaveLength(1);
     expect(store.policies.map((policy) => policy.policy)).toEqual(["join"]);
     expect(naming.calls).toEqual(["member:maya"]);
+  });
+
+  it("requires the signed join policy before minting", async () => {
+    const { store, naming, verifyJoin } = harness();
+    await expect(verifyJoin(newWallet(), "maya")).rejects.toEqual(code("join_policy_required"));
+    expect(store.members).toHaveLength(0);
+    expect(naming.calls).toEqual([]);
   });
 
   it("refuses a second identity for the same human, even from a new wallet", async () => {
@@ -39,22 +44,21 @@ describe("joining", () => {
   });
 
   it("only one of two simultaneous joins by one human succeeds", async () => {
-    const { store, join } = harness();
+    const { store, signJoin, verifyJoin } = harness();
+    const [first, second] = [newWallet(), newWallet()];
+    await signJoin(first, "first");
+    await signJoin(second, "second");
     const results = await Promise.allSettled([
-      join(newWallet(), "first", "same-person"),
-      join(newWallet(), "second", "same-person"),
+      verifyJoin(first, "first", "same-person"),
+      verifyJoin(second, "second", "same-person"),
     ]);
     expect(results.filter((result) => result.status === "fulfilled")).toHaveLength(1);
     expect(store.members).toHaveLength(1);
   });
 
-  it("writes nothing when World denies the proof", async () => {
-    const { store, naming, world, join } = harness();
-    world.deny = new WorldDenied("cancelled", "Verification was cancelled.");
-    await expect(join(newWallet(), "maya")).rejects.toEqual(code("world_cancelled"));
-    expect(store.members).toHaveLength(0);
-    expect(store.policies).toHaveLength(0);
-    expect(naming.calls).toEqual([]);
+  it("needs a wallet, because the name must have an owner", async () => {
+    const { desk } = harness();
+    await expect(desk.joinVerified({ proofRef: "p", nullifier: "n" }, { handle: "maya" })).rejects.toEqual(code("wallet_required"));
   });
 
   it("rejects reserved and malformed handles", async () => {
@@ -68,9 +72,16 @@ describe("joining", () => {
     const wallet = newWallet();
     const issuedAt = BigInt(Date.now() - 3_600_000);
     const signature = await sign(wallet, "Join", { handle: "maya", policyVersion: "1", issuedAt });
-    await expect(desk.join({ handle: "maya", issuedAt, signature, proof: { human: "a" } })).rejects.toEqual(
-      code("signature_stale"),
-    );
+    await expect(desk.acceptJoinPolicy({ handle: "maya", issuedAt, signature })).rejects.toEqual(code("signature_stale"));
+  });
+
+  it("restores a member from a wallet signature, for a passkey on a new device", async () => {
+    const { desk, join } = harness();
+    const wallet = newWallet();
+    const { memberRef } = await join(wallet, "maya");
+    const issuedAt = BigInt(Date.now());
+    const signature = await sign(wallet, "SignIn", { issuedAt });
+    await expect(desk.signIn({ issuedAt, signature })).resolves.toMatchObject({ memberRef, ensName: "maya.commentdesk.eth" });
   });
 });
 
@@ -113,8 +124,8 @@ describe("opening a docket", () => {
 });
 
 describe("commenting", () => {
-  async function ready() {
-    const context = harness();
+  async function ready(options: Parameters<typeof harness>[0] = {}) {
+    const context = harness(options);
     const owner = newWallet();
     const { key } = await context.creator(owner);
     const voter = newWallet();
@@ -122,7 +133,7 @@ describe("commenting", () => {
     return { ...context, docket: key, voter };
   }
 
-  it("posts a human comment through the IDKit gate", async () => {
+  it("posts a verified human comment as a name owned by its author", async () => {
     const { store, naming, comment, docket, voter } = await ready();
     const result = await comment(voter, docket);
     await settle();
@@ -131,65 +142,42 @@ describe("commenting", () => {
     expect(naming.calls).toContain(`comment:${result.ensName}`);
   });
 
-  it("posts an agent comment through Agent Pass under the agent's own name", async () => {
+  it("posts a confirmed agent comment under the agent's own name", async () => {
     const { store, naming, comment, docket, voter } = await ready();
-    await comment(voter, docket, { authorType: "agent" });
+    await comment(voter, docket, { authorType: "agent", proofRef: "agentpass:abc" });
     await settle();
     expect(store.comments[0]).toMatchObject({
       authorType: "agent",
       authorEns: "agent.ravi.commentdesk.eth",
-      proofRef: expect.stringContaining("agent-proof"),
+      proofRef: "agentpass:abc",
     });
     expect(naming.calls).toContain("agent:ravi.commentdesk.eth");
   });
 
-  it("discards an agent draft when the confirm covers different text", async () => {
-    const { store, world, comment, docket, voter } = await ready();
-    world.confirmedDraft = opId("the text that was actually approved");
-    await expect(comment(voter, docket, { authorType: "agent", stance: "changed after approval" })).rejects.toEqual(
-      code("world_draft_mismatch"),
+  it("defaults sentiment to neutral, for an agent draft that has none", async () => {
+    const { store, desk, docket, voter } = await ready();
+    const member = store.members.find((item) => item.ensName.startsWith("ravi"))!;
+    expect(voter).toBeDefined();
+    await desk.postVerifiedComment(
+      { proofRef: "p" },
+      { memberRef: member.key, docketKey: docket, topic: "cost", text: "Words.", authorType: "agent" },
     );
-    expect(store.comments).toHaveLength(0);
+    expect(store.comments[0]?.sentiment).toBe("neutral");
   });
 
-  it("posts nothing when the Agent Pass confirm expired", async () => {
-    const { store, world, comment, docket, voter } = await ready();
-    world.deny = new WorldDenied("confirm_expired", "This approval expired.");
-    await expect(comment(voter, docket, { authorType: "agent" })).rejects.toEqual(code("world_confirm_expired"));
-    expect(store.comments).toHaveLength(0);
-  });
-
-  it("posts nothing when the member cancels IDKit", async () => {
-    const { store, world, comment, docket, voter } = await ready();
-    world.deny = new WorldDenied("cancelled", "Cancelled.");
-    await expect(comment(voter, docket)).rejects.toEqual(code("world_cancelled"));
-    expect(store.comments).toHaveLength(0);
-  });
-
-  it("binds the proof to the exact text, topic and author", async () => {
-    const { store, world, comment, docket, voter } = await ready();
-    await comment(voter, docket, { stance: "Exact words." });
-    expect(world.received[0]).toBe(
-      submissionKey({
-        docket,
-        topic: "emissions",
-        sentiment: "support",
-        stanceHash: textHash("Exact words."),
-        authorType: "human",
-        owner: ownerHash(voter.address),
-      }),
-    );
-    await comment(voter, docket, { stance: "Exact words!" });
-    expect(world.received[1]).not.toBe(world.received[0]);
-    expect(store.comments).toHaveLength(2);
-  });
-
-  it("stores extras but only counts the first, then hits the cap", async () => {
+  it("allows one comment per topic by default, matching the World gate", async () => {
     const { store, comment, docket, voter } = await ready();
+    await comment(voter, docket);
+    await expect(comment(voter, docket)).rejects.toEqual(code("already_commented"));
+    expect(store.comments).toHaveLength(1);
+  });
+
+  it("stores extras but counts only the first when a higher cap is set", async () => {
+    const { store, comment, docket, voter } = await ready({ maxCommentsPerTopic: 3 });
     expect((await comment(voter, docket)).counted).toBe(true);
     expect((await comment(voter, docket)).counted).toBe(false);
     expect((await comment(voter, docket)).counted).toBe(false);
-    await expect(comment(voter, docket)).rejects.toEqual(code("comment_cap_reached"));
+    await expect(comment(voter, docket)).rejects.toEqual(code("already_commented"));
     expect(store.comments).toHaveLength(3);
   });
 
@@ -199,11 +187,10 @@ describe("commenting", () => {
     expect((await comment(voter, docket, { topic: "cost" })).counted).toBe(true);
   });
 
-  it("does not spend a World proof on a comment that cannot post", async () => {
-    const { world, comment, docket, voter } = await ready();
+  it("refuses an unknown topic and a non-member", async () => {
+    const { comment, docket, voter } = await ready();
     await expect(comment(voter, docket, { topic: "unknown" })).rejects.toEqual(code("unknown_topic"));
     await expect(comment(newWallet(), docket)).rejects.toEqual(code("not_a_member"));
-    expect(world.received).toHaveLength(0);
   });
 
   it("gives every comment a unique name under concurrency", async () => {
@@ -214,22 +201,11 @@ describe("commenting", () => {
     expect(new Set(store.comments.map((item) => item.ensName)).size).toBe(4);
   });
 
-  it("returns the same comment for a replayed request", async () => {
-    const { store, desk, docket, voter } = await ready();
-    const issuedAt = BigInt(Date.now());
-    const message = {
-      docket,
-      topic: "cost",
-      sentiment: "oppose",
-      stanceHash: textHash("Once."),
-      authorType: "human",
-      issuedAt,
-    };
-    const signature = await sign(voter, "SubmitComment", message);
-    const request = { docket, topic: "cost", sentiment: "oppose", stance: "Once.", authorType: "human" as const, issuedAt, signature, proof: {} };
-    const first = await desk.submitComment(request);
-    const second = await desk.submitComment(request);
-    expect(second).toMatchObject({ key: first.key, repeated: true });
+  it("returns the same comment when one proof is replayed", async () => {
+    const { store, comment, docket, voter } = await ready();
+    const first = await comment(voter, docket, { proofRef: "one-proof" });
+    const second = await comment(voter, docket, { proofRef: "one-proof" });
+    expect(second.commentRef).toBe(first.commentRef);
     expect(store.comments).toHaveLength(1);
   });
 
@@ -357,10 +333,9 @@ describe("concluding a docket", () => {
     await expect(attach(swarmRef)).rejects.toEqual(code("docket_open"));
     afterDeadline();
     await close();
-    await attach(swarmRef);
     await settle();
-    expect(store.dockets[0]?.swarmRef).toBe(swarmRef);
-    expect(naming.calls.some((call) => call.includes(`archive:`))).toBe(true);
+    expect(store.dockets[0]?.swarmRef).toBeDefined();
+    expect(naming.calls.some((call) => call.includes("archive:"))).toBe(true);
     expect((await desk.archive(docket)).ruling).toBe("The rule passes.");
   });
 });

@@ -15,11 +15,10 @@ import type {
   PolicyRecord,
 } from "../src/arkiv/store.ts";
 import { DOMAIN, TYPES, type ActionName } from "../src/auth.ts";
-import { opId, textHash } from "../src/core.ts";
+import { opId, ownerHash, textHash } from "../src/core.ts";
 import { Desk, docketBodyHash } from "../src/desk.ts";
 import type { Naming } from "../src/ens/naming.ts";
 import type { Archiver } from "../src/swarm.ts";
-import type { WorldGate } from "../src/world.ts";
 
 let sequence = 0;
 const nextKey = () => opId("key", ++sequence);
@@ -43,6 +42,9 @@ export class MemoryStore implements ArkivStore {
     const key = nextKey();
     this.members.push({ ...input, key });
     return key;
+  }
+  async getMember(key: Hex) {
+    return this.members.find((item) => item.key === key);
   }
   async findMemberByOwner(ownerHash: string) {
     return this.members.find((item) => item.ownerHash === ownerHash);
@@ -99,9 +101,16 @@ export class MemoryNaming implements Naming {
   readonly rootName = "commentdesk.eth";
   calls: string[] = [];
 
-  async registerMember(label: string, _wallet: Address) {
+  wallets = new Map<string, Address>();
+
+  async registerMember(label: string, wallet: Address) {
     this.calls.push(`member:${label}`);
-    return `${label}.${this.rootName}`;
+    const name = `${label}.${this.rootName}`;
+    this.wallets.set(name, wallet);
+    return name;
+  }
+  async walletOf(memberName: string) {
+    return this.wallets.get(memberName)!;
   }
   async openDocket({ memberName, label }: { memberName: string; label: string }) {
     this.calls.push(`docket:${label}`);
@@ -122,34 +131,6 @@ export class MemoryNaming implements Naming {
   }
   async setDocketArchive(name: string, ref: string) {
     this.calls.push(`archive:${name}:${ref}`);
-  }
-}
-
-/** A controllable gate: each test decides what World would answer. */
-export class FakeWorld implements WorldGate {
-  next = 0;
-  deny?: Error;
-  confirmedDraft?: Hex;
-  received: Hex[] = [];
-
-  async verifyJoin({ proof }: { proof: unknown }) {
-    if (this.deny) throw this.deny;
-    const human = (proof as { human: string }).human;
-    return { humanVerified: true as const, proofRef: `proof-${human}`, nullifierHash: `nullifier-${human}` };
-  }
-  async verifyHumanComment({ signal }: { signal: Hex }) {
-    if (this.deny) throw this.deny;
-    this.received.push(signal);
-    return { humanVerified: true as const, proofRef: `proof-${++this.next}` };
-  }
-  async verifyAgentConfirm({ draftKey }: { draftKey: Hex }) {
-    if (this.deny) throw this.deny;
-    this.received.push(draftKey);
-    return {
-      agentConfirmed: true as const,
-      draftKey: this.confirmedDraft ?? draftKey,
-      proofRef: `agent-proof-${++this.next}`,
-    };
   }
 }
 
@@ -188,25 +169,30 @@ export const sign = (wallet: Wallet, primaryType: ActionName, message: Record<st
 export function harness(config: { moderators?: Address[]; maxCommentsPerTopic?: number } = {}) {
   const store = new MemoryStore();
   const naming = new MemoryNaming();
-  const world = new FakeWorld();
   const archiver = new MemoryArchiver();
   const desk = new Desk(
     store,
     naming,
-    world,
     {
       policyVersion: "1",
       graceDays: 7,
-      maxCommentsPerTopic: config.maxCommentsPerTopic ?? 3,
+      maxCommentsPerTopic: config.maxCommentsPerTopic ?? 1,
       moderators: config.moderators ?? [],
     },
     archiver,
   );
 
-  const join = async (wallet: Wallet, handle: string, human = handle) => {
+  const signJoin = async (wallet: Wallet, handle: string) => {
     const issuedAt = BigInt(Date.now());
     const signature = await sign(wallet, "Join", { handle, policyVersion: "1", issuedAt });
-    return desk.join({ handle, issuedAt, signature, proof: { human } });
+    return desk.acceptJoinPolicy({ handle, issuedAt, signature });
+  };
+  /** Stands for World having validated this human. */
+  const verifyJoin = (wallet: Wallet, handle: string, human = handle) =>
+    desk.joinVerified({ proofRef: `proof-${human}`, nullifier: `nullifier-${human}` }, { handle, wallet: wallet.address });
+  const join = async (wallet: Wallet, handle: string, human = handle) => {
+    await signJoin(wallet, handle);
+    return verifyJoin(wallet, handle, human);
   };
   const acceptPolicy = async (wallet: Wallet) => {
     const issuedAt = BigInt(Date.now());
@@ -217,7 +203,7 @@ export function harness(config: { moderators?: Address[]; maxCommentsPerTopic?: 
     const issuedAt = BigInt(Date.now());
     const question = "Should the rule pass?";
     const topics = ["emissions", "cost"];
-    const credentialLevel = "proof_of_presence" as const;
+    const credentialLevel = "soft" as const;
     const title = "Truck emissions rule";
     const signature = await sign(wallet, "OpenDocket", {
       label,
@@ -232,26 +218,21 @@ export function harness(config: { moderators?: Address[]; maxCommentsPerTopic?: 
   const comment = async (
     wallet: Wallet,
     docket: Hex,
-    options: { stance?: string; authorType?: "human" | "agent"; topic?: string; sentiment?: string } = {},
+    options: { stance?: string; authorType?: "human" | "agent"; topic?: string; sentiment?: string; proofRef?: string } = {},
   ) => {
     const { stance = "I support this.", authorType = "human", topic = "emissions", sentiment = "support" } = options;
-    const issuedAt = BigInt(Date.now()) + BigInt(++sequence);
-    const signature = await sign(wallet, "SubmitComment", {
-      docket,
-      topic,
-      sentiment,
-      stanceHash: textHash(stance),
-      authorType,
-      issuedAt,
-    });
-    return desk.submitComment({ docket, topic, sentiment, stance, authorType, issuedAt, signature, proof: {} });
+    const member = await store.findMemberByOwner(ownerHash(wallet.address));
+    return desk.postVerifiedComment(
+      { proofRef: options.proofRef ?? `proof-${++sequence}` },
+      { memberRef: member?.key ?? `0x${"00".repeat(32)}`, docketKey: docket, topic, text: stance, authorType, sentiment },
+    );
   };
   const creator = async (wallet: Wallet, handle = "maya") => {
     await join(wallet, handle);
     await acceptPolicy(wallet);
     return open(wallet);
   };
-  return { store, naming, world, archiver, desk, join, acceptPolicy, open, comment, creator };
+  return { store, naming, archiver, desk, signJoin, verifyJoin, join, acceptPolicy, open, comment, creator };
 }
 
 /** Lets background ENS writes finish. */

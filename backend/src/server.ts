@@ -9,7 +9,8 @@ import { loadConfig } from "./config.ts";
 import { Desk } from "./desk.ts";
 import { EnsNaming } from "./ens/naming.ts";
 import { BeeArchiver, GATEWAY_BATCH_ID } from "./swarm.ts";
-import { devWorldGate, unavailableWorldGate } from "./world.ts";
+import { DeskWorldHost } from "./host/desk-host.ts";
+import { devWorldRoutes } from "./world-dev.ts";
 
 const config = loadConfig();
 
@@ -31,21 +32,21 @@ const naming = new EnsNaming({
   moderators: config.moderators,
 });
 
-// The World integration replaces this line.
-const world = config.WORLD_GATE === "dev" ? devWorldGate : unavailableWorldGate;
-if (config.WORLD_GATE === "dev") console.warn("[world] DEV GATE: proofs are not checked. Records are marked dev:");
-
 const archiver = new BeeArchiver({
   beeUrl: config.SWARM_BEE_URL,
   batchId: config.SWARM_BATCH_ID ?? GATEWAY_BATCH_ID,
 });
 
-const desk = new Desk(store, naming, world, {
+const desk = new Desk(store, naming, {
   policyVersion: config.POLICY_VERSION,
   graceDays: config.GRACE_DAYS,
   maxCommentsPerTopic: config.MAX_COMMENTS_PER_TOPIC,
   moderators: [...config.moderators, ...(moderator ? [moderator.address.toLowerCase() as Address] : [])],
 }, archiver);
+
+const moderators = [...config.moderators, ...(moderator ? [moderator.address.toLowerCase()] : [])];
+const host = new DeskWorldHost(desk, store);
+const useDevWorld = config.WORLD_GATE === "dev";
 
 const app = createApi({
   desk,
@@ -55,7 +56,14 @@ const app = createApi({
   mode: "live",
   policyVersion: config.POLICY_VERSION,
   rootName: config.rootName,
+  moderators,
+  world: useDevWorld ? "dev" : "world",
 });
+
+if (useDevWorld) {
+  console.warn("[world] DEV STAND-IN: proofs are not checked. Records are marked dev:");
+  app.route("/", devWorldRoutes({ desk, store, host }));
+}
 
 serve({ fetch: app.fetch, port: config.PORT }, ({ port }) => {
   console.log(`Comment Desk API on http://localhost:${port}`);

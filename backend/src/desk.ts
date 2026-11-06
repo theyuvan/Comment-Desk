@@ -1,4 +1,4 @@
-import { keccak256, type Address, type Hex } from "viem";
+import { isAddress, keccak256, type Address, type Hex } from "viem";
 import type {
   ArkivStore,
   CommentRecord,
@@ -12,7 +12,19 @@ import type { Naming } from "./ens/naming.ts";
 import { assertUsableLabel, normalizeLabel } from "./ens/names.ts";
 import { SENTIMENTS, tally, type Tally } from "./recount.ts";
 import type { Archiver } from "./swarm.ts";
-import { WorldDenied, type CredentialLevel, type WorldGate } from "./world.ts";
+
+export type CredentialLevel = "strict" | "soft";
+
+/** What World hands over after a proof passes. See src/host/desk-host.ts. */
+export type VerifiedJoin = { proofRef: string; nullifier: string };
+export type VerifiedComment = {
+  memberRef: string;
+  docketKey: string;
+  topic: string;
+  text: string;
+  authorType: "human" | "agent";
+  sentiment?: string;
+};
 
 export type DeskConfig = {
   policyVersion: string;
@@ -48,18 +60,6 @@ function label(raw: string, what: string): string {
   }
 }
 
-/** The exact text and context a World proof or Agent Pass confirm is bound to. */
-export function submissionKey(input: {
-  docket: Hex;
-  topic: string;
-  sentiment: string;
-  stanceHash: Hex;
-  authorType: string;
-  owner: Hex;
-}): Hex {
-  return opId("submission", input.docket, input.topic, input.sentiment, input.stanceHash, input.authorType, input.owner);
-}
-
 export function docketBodyHash(question: string, topics: string[]): Hex {
   return textHash(JSON.stringify({ question, topics }));
 }
@@ -77,7 +77,6 @@ export class Desk {
   constructor(
     private readonly store: ArkivStore,
     private readonly naming: Naming,
-    private readonly world: WorldGate,
     private readonly config: DeskConfig,
     private readonly archiver: Archiver,
   ) {}
@@ -109,7 +108,11 @@ export class Desk {
     return docket;
   }
 
-  async join(input: { handle: string; issuedAt: bigint; signature: Hex; proof: unknown }) {
+  /**
+   * The first consent, signed before World is asked. Separate from the proof so
+   * the World half stays unaware of policies, and joinVerified can require it.
+   */
+  async acceptJoinPolicy(input: { handle: string; issuedAt: bigint; signature: Hex }) {
     const handle = label(input.handle, "Handle");
     const { policyVersion } = this.config;
     const wallet = await recoverSigner(
@@ -119,49 +122,69 @@ export class Desk {
     );
     const owner = ownerHash(wallet);
     const ensName = `${handle}.${this.naming.rootName}`;
-
-    const assertFree = async () => {
-      if (await this.store.findMemberByOwner(owner)) {
-        throw new AppError(409, "already_member", "This wallet has already joined.");
-      }
-      if (await this.store.findMemberByEns(ensName)) {
-        throw new AppError(409, "handle_taken", `${ensName} is already taken.`);
-      }
-    };
-    await assertFree();
-    const verified = await this.world.verifyJoin({ proof: input.proof, signal: keccak256(input.signature) });
+    await this.assertIdentityFree(owner, ensName);
 
     return this.identityQueue.run(async () => {
-      await assertFree();
-      if (await this.store.findMemberByNullifier(verified.nullifierHash)) {
+      const existing = await this.store.findPolicy(owner, "join");
+      if (existing) return { key: existing.key, wallet, ensName };
+      const key = await this.store.createPolicy({
+        opId: opId("policy", "join", owner, policyVersion),
+        ownerHash: owner,
+        policy: "join",
+        policyVersion,
+        signatureHash: keccak256(input.signature),
+        acceptedAt: BigInt(Date.now()),
+      });
+      return { key, wallet, ensName };
+    });
+  }
+
+  private async assertIdentityFree(owner: string, ensName: string) {
+    if (await this.store.findMemberByOwner(owner)) {
+      throw new AppError(409, "already_member", "This wallet has already joined.");
+    }
+    if (await this.store.findMemberByEns(ensName)) {
+      throw new AppError(409, "handle_taken", `${ensName} is already taken.`);
+    }
+  }
+
+  /** Runs after World has validated a unique human. One human, one name (NFR2). */
+  async joinVerified(proof: VerifiedJoin, join: { handle: string; wallet?: string }) {
+    const handle = label(join.handle, "Handle");
+    if (!join.wallet || !isAddress(join.wallet)) {
+      throw new AppError(422, "wallet_required", "Joining needs the member's wallet.");
+    }
+    const wallet = join.wallet as Address;
+    const owner = ownerHash(wallet);
+    const ensName = `${handle}.${this.naming.rootName}`;
+
+    return this.identityQueue.run(async () => {
+      await this.assertIdentityFree(owner, ensName);
+      if (await this.store.findMemberByNullifier(proof.nullifier)) {
         throw new AppError(409, "human_already_joined", "This person already has a Comment Desk identity.");
       }
-
-      const now = BigInt(Date.now());
-      const existingPolicy = await this.store.findPolicy(owner, "join");
-      const joinPolicyKey =
-        existingPolicy?.key ??
-        (await this.store.createPolicy({
-          opId: opId("policy", "join", owner, policyVersion),
-          ownerHash: owner,
-          policy: "join",
-          policyVersion,
-          signatureHash: keccak256(input.signature),
-          acceptedAt: now,
-        }));
+      const policy = await this.store.findPolicy(owner, "join");
+      if (!policy) throw new AppError(403, "join_policy_required", "Sign the join policy first.");
 
       await this.naming.registerMember(handle, wallet);
-      const key = await this.store.createMember({
+      const memberRef = await this.store.createMember({
         opId: opId("member", owner),
         ownerHash: owner,
-        nullifierHash: verified.nullifierHash,
+        nullifierHash: proof.nullifier,
         ensName,
-        proofRef: verified.proofRef,
-        joinPolicyKey,
-        joinedAt: now,
+        proofRef: proof.proofRef,
+        joinPolicyKey: policy.key,
+        joinedAt: BigInt(Date.now()),
       });
-      return { key, ensName };
+      return { memberRef, ensName };
     });
+  }
+
+  /** Proves control of a member's wallet, so a passkey can restore a session on any device. */
+  async signIn(input: { issuedAt: bigint; signature: Hex }) {
+    const wallet = await recoverSigner("SignIn", { issuedAt: input.issuedAt }, input.signature);
+    const member = await this.memberFor(wallet);
+    return { memberRef: member.key, ensName: member.ensName };
   }
 
   /** The second, separate consent. Required before a member can open a docket (FR2, FR3). */
@@ -259,113 +282,59 @@ export class Desk {
     });
   }
 
-  async submitComment(input: {
-    docket: Hex;
-    topic: string;
-    sentiment: string;
-    stance: string;
-    authorType: "human" | "agent";
-    issuedAt: bigint;
-    signature: Hex;
-    proof: unknown;
-  }) {
-    requireText(input.stance, MAX_STANCE_BYTES, "Comment");
-    if (!(SENTIMENTS as readonly string[]).includes(input.sentiment)) {
+  /**
+   * Runs after World has validated one of the two gates. World binds the proof
+   * to these exact words, so nothing here can change them.
+   */
+  async postVerifiedComment(proof: { proofRef: string }, input: VerifiedComment) {
+    requireText(input.text, MAX_STANCE_BYTES, "Comment");
+    const sentiment = input.sentiment ?? "neutral";
+    if (!(SENTIMENTS as readonly string[]).includes(sentiment)) {
       throw new AppError(422, "invalid_input", "Sentiment must be support, oppose or neutral.");
     }
+    const member = await this.store.getMember(input.memberRef as Hex);
+    if (!member) throw new AppError(403, "not_a_member", "Join Comment Desk first.");
+    const docket = await this.docketOr404(input.docketKey as Hex);
+    this.assertAcceptingComments(docket, input.topic);
 
-    const stanceHash = textHash(input.stance);
-    const wallet = await recoverSigner(
-      "SubmitComment",
-      {
-        docket: input.docket,
-        topic: input.topic,
-        sentiment: input.sentiment,
-        stanceHash,
-        authorType: input.authorType,
-        issuedAt: input.issuedAt,
-      },
-      input.signature,
-    );
-    const member = await this.memberFor(wallet);
-    const docket = await this.docketOr404(input.docket);
-    if (docket.status !== "open" || BigInt(Date.now()) > docket.deadline) {
-      throw new AppError(409, "docket_closed", "This docket is no longer taking comments.");
-    }
-    if (!docket.topics.includes(input.topic)) {
-      throw new AppError(422, "unknown_topic", "That topic is not part of this docket.");
-    }
-
-    const op = opId("comment", input.signature);
+    const op = opId("comment", proof.proofRef);
     const repeat = await this.store.findCommentByOp(op);
-    if (repeat) return { key: repeat.key, ensName: repeat.ensName, counted: repeat.ordinal === 1, repeated: true };
+    if (repeat) return { commentRef: repeat.key, ensName: repeat.ensName, counted: repeat.ordinal === 1 };
 
     const memberTopic = `${docket.key}|${member.ownerHash}|${input.topic}`;
-    const priorComments = async () => {
-      const onChain = await this.store.countMemberComments(docket.key, member.ownerHash, input.topic);
-      return Math.max(onChain, this.memberTopicCounts.get(memberTopic) ?? 0);
-    };
-    const assertUnderCap = async () => {
-      const prior = await priorComments();
-      if (prior >= this.config.maxCommentsPerTopic) {
-        throw new AppError(409, "comment_cap_reached", `You can comment ${this.config.maxCommentsPerTopic} times per topic.`);
-      }
-      return prior;
-    };
-    await assertUnderCap();
-
-    // The two gates. Both are bound to this exact text through the key.
-    const key = submissionKey({
-      docket: docket.key,
-      topic: input.topic,
-      sentiment: input.sentiment,
-      stanceHash,
-      authorType: input.authorType,
-      owner: member.ownerHash as Hex,
-    });
-    const credentialLevel = docket.credentialLevel as CredentialLevel;
-    let proofRef: string;
-    if (input.authorType === "human") {
-      const verified = await this.world.verifyHumanComment({ proof: input.proof, signal: key, credentialLevel });
-      proofRef = verified.proofRef;
-    } else {
-      const confirmed = await this.world.verifyAgentConfirm({ proof: input.proof, draftKey: key, credentialLevel });
-      // Checked here too: an old approval must never carry different text.
-      if (confirmed.draftKey !== key) {
-        throw new WorldDenied("draft_mismatch", "The draft changed after it was approved. Nothing was posted.");
-      }
-      proofRef = confirmed.proofRef;
-    }
-
     const posted = await this.commentQueue.run(async () => {
-      const prior = await assertUnderCap();
+      const onChain = await this.store.countMemberComments(docket.key, member.ownerHash, input.topic);
+      const prior = Math.max(onChain, this.memberTopicCounts.get(memberTopic) ?? 0);
+      if (prior >= this.config.maxCommentsPerTopic) {
+        throw new AppError(409, "already_commented", "You've already commented on this topic.");
+      }
       const number = Math.max(await this.store.countComments(docket.key), this.docketCounts.get(docket.key) ?? 0) + 1;
       const ensName = `comment-${number}.${docket.ensName}`;
-      const authorEns =
-        input.authorType === "agent" ? `agent.${member.ensName}` : member.ensName;
-      const commentKey = await this.store.createComment({
+      const authorEns = input.authorType === "agent" ? `agent.${member.ensName}` : member.ensName;
+      const commentRef = await this.store.createComment({
         opId: op,
         docketKey: docket.key,
         topic: input.topic,
         ownerHash: member.ownerHash,
         authorType: input.authorType,
-        sentiment: input.sentiment,
+        sentiment,
         submittedAt: BigInt(Date.now()),
         ensName,
         authorEns,
-        proofRef,
+        proofRef: proof.proofRef,
         ordinal: prior + 1,
-        stanceHash,
-        stance: input.stance,
+        stanceHash: textHash(input.text),
+        stance: input.text,
         expiresAtBlock: docket.expiresAt,
       });
       this.memberTopicCounts.set(memberTopic, prior + 1);
       this.docketCounts.set(docket.key, number);
-      return { key: commentKey, ensName, authorEns, counted: prior === 0 };
+      return { commentRef, ensName, authorEns, counted: prior === 0 };
     });
 
     // Arkiv is the record. ENS names follow without holding the response open.
     this.inBackground(posted.ensName, async () => {
+      const wallet = await this.naming.walletOf(member.ensName);
       if (input.authorType === "agent") await this.naming.ensureAgentName(member.ensName, wallet);
       await this.naming.writeComment({
         docketName: docket.ensName,
@@ -373,11 +342,25 @@ export class Desk {
         authorEns: posted.authorEns,
         authorType: input.authorType,
         topic: input.topic,
-        arkivKey: posted.key,
+        arkivKey: posted.commentRef,
         wallet,
       });
     });
-    return { key: posted.key, ensName: posted.ensName, counted: posted.counted, repeated: false };
+    return { commentRef: posted.commentRef, ensName: posted.ensName, counted: posted.counted };
+  }
+
+  private assertAcceptingComments(docket: DocketRecord, topic: string) {
+    if (docket.status !== "open" || BigInt(Date.now()) > docket.deadline) {
+      throw new AppError(409, "docket_closed", "This docket is no longer taking comments.");
+    }
+    if (!docket.topics.includes(topic)) {
+      throw new AppError(422, "unknown_topic", "That topic is not part of this docket.");
+    }
+  }
+
+  /** Lets World refuse a dead docket before a member spends a proof on it. */
+  async assertCanComment(docketKey: string, topic: string) {
+    this.assertAcceptingComments(await this.docketOr404(docketKey as Hex), topic);
   }
 
   /** The creator concludes the case after its deadline with a published ruling. */

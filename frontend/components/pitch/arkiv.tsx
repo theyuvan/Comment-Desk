@@ -1,6 +1,7 @@
 "use client"
 
 import { useEffect, useState } from "react"
+import Image from "next/image"
 import Link from "next/link"
 import { Lock, Pencil } from "lucide-react"
 import type { Hex, Address } from "viem"
@@ -258,6 +259,75 @@ export function LiveRecount() {
             </>
           )}
         </div>
+      </div>
+    </div>
+  )
+}
+
+/* Three real, documented incidents, not an abstract claim. Big numbers, one line each. */
+
+const INCIDENTS = [
+  {
+    count: "20,000",
+    place: "Southern California",
+    caption: "fake comments, real names, no consent",
+    source: "Canary Media, 16 Mar 2026",
+    href: "https://www.canarymedia.com/articles/heat-pumps/did-fake-comments-sink-socal-clean-heat-rules",
+    image: "/evidence/civiclick-canary-media.png",
+  },
+  {
+    count: "18M of 22M",
+    place: "FCC net neutrality docket",
+    caption: "comments were fake",
+    source: "Stanford / Jeff Kao analysis, 2017",
+    href: "https://en.wikipedia.org/wiki/Restoring_Internet_Freedom_Order",
+    image: "/evidence/fcc-wikipedia.png",
+  },
+  {
+    count: "37,000",
+    place: "Washington State",
+    caption: "fake comments, one night",
+    source: "Techdirt, 10 Mar 2026",
+    href: "https://www.techdirt.com/2026/03/10/37000-fake-ai-comments-mysteriously-oppose-washington-states-effort-to-tax-the-rich/",
+    image: null,
+  },
+] as const
+
+export function ArkivEvidence() {
+  return (
+    <div>
+      <Big>Not a claim. Three documented incidents.</Big>
+      <div className="mt-10 grid gap-5 sm:grid-cols-3">
+        {INCIDENTS.map(({ count, place, caption, source, href, image }) => (
+          <a
+            key={place}
+            href={href}
+            target="_blank"
+            rel="noreferrer"
+            className="group block overflow-hidden rounded-2xl bg-foreground/[0.04] transition-colors hover:bg-foreground/[0.07]"
+          >
+            <div className="relative aspect-[16/10] w-full overflow-hidden bg-foreground/10">
+              {image ? (
+                <Image
+                  src={image}
+                  alt={`Source reporting on ${place}`}
+                  fill
+                  sizes="(min-width: 640px) 33vw, 100vw"
+                  className="object-cover object-top grayscale transition-all duration-300 group-hover:grayscale-0"
+                />
+              ) : (
+                <div className="flex h-full items-center justify-center font-mono text-[11px] text-foreground/40">
+                  Source blocks automated screenshots
+                </div>
+              )}
+            </div>
+            <div className="p-5">
+              <div className="font-display text-5xl leading-none tracking-tight">{count}</div>
+              <div className="mt-3 text-base">{caption}</div>
+              <div className="mt-3 font-mono text-[10px] uppercase tracking-widest text-foreground/45">{place} · {source}</div>
+            </div>
+          </a>
+        ))}
       </div>
     </div>
   )

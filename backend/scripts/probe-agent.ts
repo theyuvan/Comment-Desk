@@ -6,12 +6,20 @@
  */
 import { createWorldRequest } from "../src/world/idkit";
 import { submitJoin } from "../src/world/comment-gate";
-import { interviewTurn } from "../src/world/agent-interview";
+import { createClaudeAgentModel, interviewTurn } from "../src/world/agent-interview";
+import { composeAgentModels } from "../src/world/agent-models";
 import { createGeminiAgentModel } from "../src/world/gemini-model";
+import { createGroqAgentModel } from "../src/world/groq-model";
 import { fakeIdkitResult, makeDeps } from "../test/world-helpers";
 
-const model = createGeminiAgentModel(process.env.AGENT_MODEL ?? "gemini-3.5-flash");
-if (!model) throw new Error("Set GEMINI_API_KEY in .env");
+// The same provider chain start.ts wires, so this probe tests what the running server uses.
+const AGENT_MODEL = process.env.AGENT_MODEL ?? "gemini-3.5-flash";
+const model = composeAgentModels(
+  createGroqAgentModel(AGENT_MODEL),
+  createGeminiAgentModel(AGENT_MODEL),
+  createClaudeAgentModel(AGENT_MODEL),
+);
+if (!model) throw new Error("Set GROQ_API_KEY, GEMINI_API_KEY or ANTHROPIC_API_KEY in .env");
 
 const context = makeDeps();
 context.deps.agentModel = model;

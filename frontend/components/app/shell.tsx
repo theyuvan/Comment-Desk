@@ -32,10 +32,36 @@ export function useMember() {
     const load = async () => {
       if (timer) clearTimeout(timer)
       const wallet = currentWallet()
-      const found = wallet ? await api.member(wallet.address).catch(() => null) : null
-      if (found) await ensureSession().catch(() => {})
+      let found: Member | null = null
+      let unreachable = false
+      if (wallet) {
+        // "Not a member" is an answer; a timeout or a 5xx is not, and must not read as "signed out".
+        found = await api.member(wallet.address).catch(() => {
+          unreachable = true
+          return null
+        })
+      }
+      if (found) {
+        await ensureSession().catch(() => {})
+      } else if (!wallet || unreachable) {
+        // No unlocked passkey (a new tab, a restarted browser) or Arkiv is slow: the server session
+        // (7 days) still knows who this is, so show them instead of "Join".
+        const session = await request<{ memberRef: string; ensName: string } | null>("/api/session").catch(() => null)
+        if (session) {
+          found = {
+            key: session.memberRef as Member["key"],
+            ensName: session.ensName,
+            joinedAt: "0",
+            proofRef: "",
+            canOpenDockets: false,
+            isModerator: false,
+            locked: !wallet,
+          }
+        }
+      }
       if (!active) return
-      setMember(found)
+      // A failed lookup with nothing else to go on keeps whoever was shown, rather than flipping to "Join".
+      setMember((previous) => found ?? (unreachable ? (previous ?? null) : null))
       // The ENS name is minted after joining; look again until it lands.
       if (found?.nameStatus === "creating") timer = setTimeout(load, 4000)
     }

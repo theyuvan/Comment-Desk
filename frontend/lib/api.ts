@@ -32,6 +32,11 @@ export type Member = {
   nameStatus?: "creating" | "failed" | "ready"
   canOpenDockets: boolean
   isModerator: boolean
+  /**
+   * Known from the server session only: the passkey isn't unlocked in this tab, so nothing can be
+   * signed yet. Commenting still works (World ID is the check); opening a docket or a ruling needs an unlock.
+   */
+  locked?: boolean
 }
 
 export type ReceiptStep = {

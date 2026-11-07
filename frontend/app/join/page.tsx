@@ -10,6 +10,7 @@ import { Label } from "@/components/ui/label"
 import { api, request } from "@/lib/api"
 import { createWallet, currentWallet, signAction, signOut, typedData, unlockWallet, walletKind } from "@/lib/wallet"
 import { WorldVerifyButton } from "@/world/WorldVerifyButton"
+import { UnlockPasskey } from "@/components/app/unlock"
 import { ReceiptPanel, ReceiptView, useReceipt } from "@/components/app/receipt"
 
 const STEPS = ["Choose your name", "Create your passkey", "Verify with World ID"]
@@ -226,10 +227,13 @@ export default function JoinPage() {
             </Link>
           </p>
           <p className="text-sm leading-relaxed text-muted-foreground">
-            {walletKind() === "passkey"
-              ? "Secured by your passkey. No key is stored on this device."
-              : "This device has no passkey support, so your key is kept in this browser. Clearing site data loses this identity."}
+            {member.locked
+              ? "You're signed in on this browser. Commenting works as is. Unlock your passkey to open dockets or publish rulings."
+              : walletKind() === "passkey"
+                ? "Secured by your passkey. No key is stored on this device."
+                : "This device has no passkey support, so your key is kept in this browser. Clearing site data loses this identity."}
           </p>
+          {member.locked && <UnlockPasskey onUnlocked={refresh} />}
           <NameReceipt
             ensName={member.ensName}
             creating={member.nameStatus === "creating"}
@@ -238,10 +242,12 @@ export default function JoinPage() {
           {member.proofRef.startsWith("dev:") && (
             <Notice>This identity used the development stand-in for World ID. It is not a verified human.</Notice>
           )}
-          <dl className="border-y border-foreground/10 py-3 font-mono text-xs text-muted-foreground">
-            <dt className="inline">Wallet </dt>
-            <dd className="inline break-all">{address}</dd>
-          </dl>
+          {!member.locked && (
+            <dl className="border-y border-foreground/10 py-3 font-mono text-xs text-muted-foreground">
+              <dt className="inline">Wallet </dt>
+              <dd className="inline break-all">{address}</dd>
+            </dl>
+          )}
           <div className="flex flex-wrap gap-3">
             <Button asChild className="rounded-full">
               <Link href="/dockets">Browse dockets</Link>
@@ -249,7 +255,7 @@ export default function JoinPage() {
             <Button asChild variant="outline" className="rounded-full">
               <Link href="/dockets/new">Open a docket</Link>
             </Button>
-            {walletKind() === "passkey" && (
+            {(member.locked || walletKind() === "passkey") && (
               <Button variant="ghost" className="rounded-full" onClick={leave}>
                 Sign out
               </Button>

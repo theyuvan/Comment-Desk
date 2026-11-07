@@ -12,6 +12,7 @@ import { Textarea } from "@/components/ui/textarea"
 import { request, type CredentialLevel, type Member } from "@/lib/api"
 import { signAction, textHash, typedData } from "@/lib/wallet"
 import { ReceiptPanel, useReceipt } from "@/components/app/receipt"
+import { UnlockPasskey } from "@/components/app/unlock"
 
 /** Live steps for the docket being opened: its registry, its resolver, its name, then Arkiv. */
 function OpeningProgress({ name, since }: { name: string; since: number }) {
@@ -177,12 +178,20 @@ export default function NewDocketPage() {
           </Button>
         </div>
       )}
-      {member && (
+      {member?.locked && (
+        <div className="max-w-lg space-y-4">
+          <Notice>
+            You&apos;re signed in as {member.ensName}, but opening a docket needs your signature. Unlock your passkey to continue.
+          </Notice>
+          <UnlockPasskey onUnlocked={refresh} />
+        </div>
+      )}
+      {member && !member.locked && (
         <div className="mb-8 max-w-xl">
           <Steps steps={["Sign the creator policy", "Describe the case"]} active={member.canOpenDockets ? 1 : 0} />
         </div>
       )}
-      {member && !member.canOpenDockets && <PolicyStep onSigned={refresh} />}
+      {member && !member.locked && !member.canOpenDockets && <PolicyStep onSigned={refresh} />}
       {member?.canOpenDockets && <DocketForm member={member} />}
     </Shell>
   )

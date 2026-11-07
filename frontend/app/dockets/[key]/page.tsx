@@ -14,6 +14,7 @@ import { api, request, type ArchiveCheck, type Comment, type Docket, type Member
 import { signAction, textHash } from "@/lib/wallet"
 import { AgentDraftReview } from "@/world/AgentDraftReview"
 import { AgentInterview } from "@/world/AgentInterview"
+import { UnlockPasskey } from "@/components/app/unlock"
 import { AgentPassResult } from "@/world/AgentPassResult"
 import { WorldVerifyButton } from "@/world/WorldVerifyButton"
 import { ReceiptPanel, ReceiptView, useReceipt } from "@/components/app/receipt"
@@ -380,7 +381,7 @@ function CommentItem({ comment }: { comment: Comment }) {
 
 export default function DocketPage() {
   const { key } = useParams<{ key: string }>()
-  const { member } = useMember()
+  const { member, refresh } = useMember()
   const [docket, setDocket] = useState<Docket>()
   const [comments, setComments] = useState<Comment[]>([])
   const [tally, setTally] = useState<Tally>()
@@ -452,7 +453,13 @@ export default function DocketPage() {
               to comment. One person, one counted voice per topic.
             </Notice>
           )}
-          {docket.phase === "awaiting-ruling" && isCreator && <RulingForm docket={docket} onClosed={load} />}
+          {docket.phase === "awaiting-ruling" && isCreator && member?.locked && (
+            <div className="space-y-4">
+              <Notice>Publishing the ruling needs your signature. Unlock your passkey to continue.</Notice>
+              <UnlockPasskey onUnlocked={refresh} />
+            </div>
+          )}
+          {docket.phase === "awaiting-ruling" && isCreator && !member?.locked && <RulingForm docket={docket} onClosed={load} />}
           {docket.phase === "awaiting-ruling" && !isCreator && (
             <Notice>Comments are closed. This docket is waiting for its creator to publish a ruling.</Notice>
           )}

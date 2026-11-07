@@ -120,3 +120,20 @@ test("agent interview DENIED: not configured, someone else's conversation, a fai
   ctx.deps.agentModel = undefined;
   await assert.rejects(interviewTurn(ctx.deps, ctx.memberRef, { docketKey, message: "Hi" }), reason("agent_unavailable"));
 });
+
+test("agent interview: an empty reply or a stage direction is replaced by a real question, and history stays valid", async () => {
+  for (const unusable of [undefined, "(Waiting for your response…)", "[Awaiting your answers so I can draft your comment.]"]) {
+    const ctx = await member([{ text: unusable }, { text: "Which topic?" }]);
+    const first = await interviewTurn(ctx.deps, ctx.memberRef, { docketKey, message: "im gonna support it, give me the comment" });
+    assert.match(first.reply, /Which topic do you want to comment on \(emission-limits, phase-in-timeline, enforcement\)/);
+    assert.equal(first.draft, undefined);
+
+    // The next turn replays the stored history: the placeholder must not be in it, and nothing in it may be empty.
+    await interviewTurn(ctx.deps, ctx.memberRef, { interviewId: first.interviewId, docketKey, message: "Enforcement, I support it." });
+    const history = ctx.agent.seen.at(-1)!.messages;
+    assert.deepEqual(history.map((m) => m.role), ["user", "assistant", "user"]);
+    const stored = JSON.stringify(history[1]);
+    assert.ok(stored.includes("Which topic do you want to comment on"));
+    assert.ok(!/waiting|awaiting/i.test(stored));
+  }
+});

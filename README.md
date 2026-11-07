@@ -4,6 +4,100 @@ Built for ETHGlobal Mumbai, Nov 2026. Uses World ID (identity + Agent Pass), Ark
 
 **The one-line pitch**: it feels like Reddit or X — people post under dockets, reply, see counts go up — but every post is tied to one real, unique human, and a docket isn't a feed that scrolls away. A docket is a case: it opens, collects input against a deadline, **concludes** with a published ruling or response, and the full record of who-said-what stays queryable forever (or until its stated expiry), by anyone, independent of the platform. Reddit has no deadline, no conclusion, no Sybil resistance, and no record you can recount yourself. That gap is the entire product.
 
+## Contents
+
+- [Built for three tracks — why each one is load-bearing, not bolted on](#built-for-three-tracks--why-each-one-is-load-bearing-not-bolted-on)
+- [See it on-chain, not just in this file](#see-it-on-chain-not-just-in-this-file)
+- [Documentation map](#documentation-map)
+- [Terminology: what "docket" means here](#terminology-what-docket-means-here)
+- [Arkiv and Swarm together](#arkiv-and-swarm-together)
+- [Problem](#problem) · [Solution](#solution) · [Scope](#scope--mini-hackathon-version) · [Use cases](#use-cases)
+- [Requirements (SRS)](#requirements-srs) · [Identity and naming model](#identity-and-naming-model) · [Access control](#access-control)
+- [Arkiv entity schema](#arkiv-entity-schema) · [Modules](#modules) · [Step-by-step flow](#step-by-step-flow)
+- [Tech stack](#tech-stack) · [Implementation details — real calls, no mocked proofs](#implementation-details--real-calls-no-mocked-proofs)
+- [Required judging deliverables (Arkiv track)](#required-judging-deliverables-arkiv-track-verbatim-requirements)
+- [Deployed addresses](#deployed-addresses) · [How we used AI](#how-we-used-ai) · [Build phases](#build-phases) · [Honest gaps](#honest-gaps-and-future-work)
+
+## Built for three tracks — why each one is load-bearing, not bolted on
+
+Each track below is scored against ETHGlobal's own published qualification requirements for Mumbai (`ethglobal.com/events/mumbai/prizes`). Where a requirement is quoted, it's the sponsor's own wording; everything in the "✅" column points at a real file or line in this repo, not a claim.
+
+### World — identity ($12,500 pool: World ID Agent Pass + Best Use of IDKit)
+
+**Why it's central, not cosmetic**: the entire product's trust claim — "one human, one counted comment" — is worthless without a way to tell a real, unique human from a script. World ID is the only layer in this stack that does that without collecting PII. Everything else (ENS names, Arkiv records, recounts) is built *on top of* a World ID proof, not alongside it.
+
+**Agent Pass qualification** (sponsor's own requirements, quoted):
+
+| Requirement | Satisfied by |
+| --- | --- |
+| "Integrate with the official World ID Agent Pass." | Real OIDC step-up against `auth.world.org` — [backend/src/world/agent-pass.ts](backend/src/world/agent-pass.ts) |
+| "Demonstrate the complete journey: identity or verification request, user completion, validated result, and the protected application or agent action." | Agent drafts → member approves via Agent Pass → comment posts. Full script: [world/world-id.md](world/world-id.md) |
+| "Demonstrate a denied, expired, cancelled, or otherwise unsuccessful path where the protected action does not occur." | Draft-changed, cancelled, and expired paths all discard the draft — [world/agent-pass.md](world/agent-pass.md#successful-and-alternative-paths-demonstrated) |
+| "Validate identity results in a secure backend; do not expose client secrets or treat an unvalidated client response as authorization." | Every check (PKCE, state, nonce, `acr`, `auth_time`, draft-hash match) runs server-side in `completeAgentConfirm` — [backend/src/world/agent-pass.ts:81](backend/src/world/agent-pass.ts#L81) |
+| "Include a short integration debrief/feedback: time to first success, friction, missing capability, one improvement." | [world/agent-pass.md § Integration debrief](world/agent-pass.md#integration-debrief) |
+
+**IDKit qualification** (quoted):
+
+| Requirement | Satisfied by |
+| --- | --- |
+| "Integrate IDKit in a functioning application, mini app, or onchain flow." | [frontend/world/WorldVerifyButton.tsx](frontend/world/WorldVerifyButton.tsx), server verify in [backend/src/world/idkit.ts](backend/src/world/idkit.ts) |
+| "Use at least one supported World ID credential and verify the result on the server or onchain as appropriate." | Proof of Human (join) and Selfie Check (soft dockets), verified against `developer.world.org`, never trusted from the client |
+| "Clearly explain the specific product event requiring trust and why the chosen credential is the minimum sufficient assurance." | [world/idkit.md § How we use it](world/idkit.md#how-we-use-it) — the join-vs-comment credential table |
+| "Demonstrate a successful verification and one meaningful alternative path." | Cancelled widget, already-verified join, reused nullifier — [world/idkit.md § Successful and alternative paths](world/idkit.md#successful-and-alternative-paths-demonstrated) |
+| "Include a short integration debrief/feedback." | [world/idkit.md § Integration debrief](world/idkit.md#integration-debrief) |
+
+### Arkiv — the record layer (up to $4,000 + $500 Swarm bonus)
+
+**Why it's central, not cosmetic**: the pitch is "recount it yourself, don't trust our server." That claim is only true if the tally actually lives somewhere nobody's backend controls. Swapping Arkiv for Postgres would make every count in this product a claim again, not a fact — see [arkiv/why-arkiv.md](arkiv/why-arkiv.md).
+
+**Qualification** (per the sponsor's requirements for "Build on Arkiv"): writes to Arkiv's current testnet (Rabdi) through `@arkiv-network/sdk`, with at least one user-facing feature that reads it back — not installed-but-unused, not a write-only log nothing reads. The live tally and the public recount page both read straight from Arkiv; see [Required judging deliverables](#required-judging-deliverables-arkiv-track-verbatim-requirements) below for the full checklist, including the publisher wallet and a runnable query.
+
+**Judging weight (25% each, per the sponsor's own criteria, one file per criterion)**:
+
+| Criterion | File |
+| --- | --- |
+| Arkiv feedback | [arkiv/friction.md](arkiv/friction.md) |
+| Reach | [arkiv/reach.md](arkiv/reach.md) |
+| Why Arkiv | [arkiv/why-arkiv.md](arkiv/why-arkiv.md) |
+| How you use Arkiv | [arkiv/how-you-use-arkiv.md](arkiv/how-you-use-arkiv.md) |
+
+**Swarm bonus**: used together, not separately — the closed docket's permanent ruling + comment archive moves to Swarm, with the reference written back onto the Arkiv `docket` entity. Detail, postage batch, and a reproducible upload/read: [arkiv/swarm.md](arkiv/swarm.md).
+
+### ENS — the naming layer (up to $7,000, Best Use of ENSv2)
+
+**Why it's central, not cosmetic**: ENS isn't a vanity name here — it's an access-control decision point. Every comment reads the docket's live ENS text records *before* Arkiv is touched; if ENS says closed, nothing gets written, even if Arkiv's own copy still says open. Pull ENS out and the product's core promise — that not even this platform's own server can keep a closed case open — stops being true. See [ens/key-features.md § Why it's central, not cosmetic](ens/key-features.md#why-its-central-not-cosmetic).
+
+**Qualification** (per the sponsor's requirements): built on ENSv2 (mainnet or Sepolia accepted — this build targets Sepolia with real, non-mock contracts), ENSv2 central to the product, a functional demo with no hard-coded values (`npm run simulate:ens` replays the whole flow, denied paths included, against live contracts), open-source code.
+
+Three ENSv2 primitives doing real work, not a plain subname mint — Permissioned Registry, Permissioned Resolver per docket, non-transferable member identity — detailed with exact code references in [ens/key-features.md](ens/key-features.md).
+
+## See it on-chain, not just in this file
+
+Every claim above has something to click, not just prose:
+
+| Proof | Where |
+| --- | --- |
+| Live, filterable feed of every World/Arkiv/ENS action this app has taken, each step linked to its real tx or Arkiv entity | `/activity` in the running app (see [Build & run](#tech-stack)) |
+| `commentdesk.eth` root registry emancipated — the operator's `SET_RESOLVER`/`SET_SUBREGISTRY` rights on it are gone, verified live | [tx `0xaaa8af7287…8d35b5b`](https://sepolia.etherscan.io/tx/0xaaa8af72870c4e6cded1d39289d1365f025151e415f190f28f22adf008d35b5b) |
+| A real Arkiv `docket` entity, with its Swarm archive reference attached on close | `0x37655b1db9c5de5156a2700e4e7eb0ff5407a6edef70258c45d386855f2d7e14` — [arkiv/swarm.md](arkiv/swarm.md) |
+| Every entity this app has ever written to Arkiv, independently re-queryable | `0x4C16bF7e5267530D8185A92B8CA6ec11cCb85310` — see [Required judging deliverables](#required-judging-deliverables-arkiv-track-verbatim-requirements) for the exact runnable query |
+| Every deployed contract/wallet address used in the demo | [Deployed addresses](#deployed-addresses) |
+
+## Documentation map
+
+| File | What it covers |
+| --- | --- |
+| [arkiv/schema.md](arkiv/schema.md) | The four Arkiv entities, their queryable fields, owners, expirations |
+| [arkiv/friction.md](arkiv/friction.md) | What got in the way building on Arkiv, and what would've helped |
+| [arkiv/reach.md](arkiv/reach.md) | Who this is for, and whether it keeps being built after Mumbai |
+| [arkiv/why-arkiv.md](arkiv/why-arkiv.md) | What's lost if Arkiv were swapped for Postgres |
+| [arkiv/how-you-use-arkiv.md](arkiv/how-you-use-arkiv.md) | Confirms every Arkiv feature used changes something a user actually sees |
+| [arkiv/swarm.md](arkiv/swarm.md) | What's on Swarm vs. Arkiv, a real entity key + Swarm reference, reproducible upload/read |
+| [ens/key-features.md](ens/key-features.md) | ENSv2 primitives in use, why they're central, the root-emancipation proof |
+| [world/world-id.md](world/world-id.md) | The full demo script, every denied/alternative path, setup traps |
+| [world/agent-pass.md](world/agent-pass.md) | Agent Pass track debrief: how it's used, alternative paths, integration debrief |
+| [world/idkit.md](world/idkit.md) | IDKit track debrief: credential choice reasoning, alternative paths, integration debrief |
+
 ## Terminology: what "docket" means here
 
 "Docket" isn't being borrowed loosely from Web3 jargon — it's being used the way it's actually used in law and regulation, which is exactly the domain this project sits in. A docket is the formal record of a proceeding: every filing, every submission, every update, tracked against one case or one decision. That's the same sense people mean when they track the SEC v. Ripple or SEC v. Coinbase docket for the latest motions and rulings, or when the FTX, Celsius, and Voyager bankruptcy dockets list every creditor claim and recovery update.
@@ -39,7 +133,7 @@ That's the actual design principle, not a arbitrary choice: **the verification m
 
 Comment records carry a real expiry. The record of who-said-what lives on Arkiv, with owner keys hashed for privacy, queryable by anyone running a recount — not locked behind the docket owner's private server.
 
-## Scope — mini (hackathon) version
+## Scope
 
 **In scope:**
 - One platform, multiple dockets, each with a few topics and a deadline.

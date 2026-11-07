@@ -3,6 +3,7 @@
 import { Suspense, useEffect, useState } from "react"
 import Link from "next/link"
 import { useSearchParams } from "next/navigation"
+import { FileSignature, FileText, Gavel, MessageSquare, ShieldAlert, UserPlus } from "lucide-react"
 import { ReceiptPanel } from "@/components/app/receipt"
 import { EnsLink, Eyebrow, Loading, Notice, Shell, useHealth } from "@/components/app/shell"
 import { api, type Receipt } from "@/lib/api"
@@ -25,7 +26,29 @@ const TITLE: Record<Receipt["kind"], string> = {
   moderation: "Closed by a moderator",
 }
 
-const time = (at: number) => new Date(at).toLocaleString(undefined, { dateStyle: "medium", timeStyle: "short" })
+const KIND_ICON: Record<Receipt["kind"], typeof UserPlus> = {
+  policy: FileSignature,
+  join: UserPlus,
+  docket: FileText,
+  comment: MessageSquare,
+  ruling: Gavel,
+  moderation: ShieldAlert,
+}
+
+const dayOf = (at: number) => new Date(at).toLocaleDateString(undefined, { weekday: "long", month: "long", day: "numeric" })
+const timeOf = (at: number) => new Date(at).toLocaleTimeString(undefined, { timeStyle: "short" })
+
+/** Consecutive receipts from the same calendar day, so the feed reads as a timeline, not a flat list. */
+function groupByDay(receipts: Receipt[]) {
+  const groups: { day: string; items: Receipt[] }[] = []
+  for (const item of receipts) {
+    const day = dayOf(item.startedAt)
+    const last = groups[groups.length - 1]
+    if (last?.day === day) last.items.push(item)
+    else groups.push({ day, items: [item] })
+  }
+  return groups
+}
 
 function Activity() {
   const subject = useSearchParams().get("subject") ?? undefined
@@ -58,6 +81,9 @@ function Activity() {
 
   const { kinds } = KINDS[filter]!
   const visible = receipts?.filter((item) => kinds.length === 0 || kinds.includes(item.kind))
+  const countFor = (itemKinds: Receipt["kind"][]) =>
+    receipts ? receipts.filter((item) => itemKinds.length === 0 || itemKinds.includes(item.kind)).length : undefined
+  const groups = visible ? groupByDay(visible) : []
 
   return (
     <>
@@ -84,21 +110,31 @@ function Activity() {
         </div>
       )}
 
-      <div className="mb-6 flex flex-wrap gap-2" role="tablist" aria-label="Filter by action">
-        {KINDS.map((item, index) => (
-          <button
-            key={item.label}
-            type="button"
-            role="tab"
-            aria-selected={filter === index}
-            onClick={() => setFilter(index)}
-            className={`border px-3 py-1 text-xs transition-colors ${
-              filter === index ? "border-foreground bg-foreground text-background" : "border-foreground/15 hover:bg-foreground/5"
-            }`}
-          >
-            {item.label}
-          </button>
-        ))}
+      <div className="mb-10 flex flex-wrap gap-2" role="tablist" aria-label="Filter by action">
+        {KINDS.map((item, index) => {
+          const count = countFor(item.kinds)
+          return (
+            <button
+              key={item.label}
+              type="button"
+              role="tab"
+              aria-selected={filter === index}
+              onClick={() => setFilter(index)}
+              className={`inline-flex items-center gap-1.5 rounded-full border px-3.5 py-1.5 text-xs transition-colors ${
+                filter === index
+                  ? "border-foreground bg-foreground text-background"
+                  : "border-foreground/15 text-muted-foreground hover:border-foreground/30 hover:text-foreground"
+              }`}
+            >
+              {item.label}
+              {count !== undefined && (
+                <span className={`font-mono text-[10px] ${filter === index ? "text-background/70" : "text-muted-foreground/70"}`}>
+                  {count}
+                </span>
+              )}
+            </button>
+          )
+        })}
       </div>
 
       {error && <Notice tone="error">{error}</Notice>}
@@ -108,14 +144,36 @@ function Activity() {
           Nothing recorded yet. Join, open a docket or post a comment, and every step shows up here.
         </p>
       )}
-      <div className="space-y-4">
-        {visible?.map((item) => (
-          <div key={item.id}>
-            <p className="mb-1 font-mono text-xs text-muted-foreground">{time(item.startedAt)}</p>
-            <ReceiptPanel title={`${TITLE[item.kind]} · ${item.subject}`} receipt={item} />
-          </div>
-        ))}
-      </div>
+
+      {groups.map((group, groupIndex) => (
+        <section key={group.day} className="mb-10 last:mb-0">
+          <h2 className="sticky top-16 z-10 mb-5 inline-block rounded-full border border-foreground/10 bg-background/90 px-3 py-1 font-mono text-[11px] uppercase tracking-wider text-muted-foreground backdrop-blur">
+            {group.day}
+          </h2>
+          <ol className="relative space-y-4 border-l border-foreground/10 pl-7">
+            {group.items.map((item, itemIndex) => {
+              const Icon = KIND_ICON[item.kind]
+              return (
+                <li key={item.id} className="relative">
+                  <span
+                    aria-hidden="true"
+                    className="absolute -left-[2.35rem] top-0 flex h-8 w-8 items-center justify-center rounded-full border border-foreground/15 bg-background"
+                  >
+                    <Icon className="h-3.5 w-3.5" strokeWidth={1.6} />
+                  </span>
+                  <ReceiptPanel
+                    title={`${TITLE[item.kind]} · ${item.subject}`}
+                    receipt={item}
+                    time={timeOf(item.startedAt)}
+                    collapsible
+                    defaultOpen={groupIndex === 0 && itemIndex === 0}
+                  />
+                </li>
+              )
+            })}
+          </ol>
+        </section>
+      ))}
     </>
   )
 }

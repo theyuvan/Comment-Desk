@@ -57,8 +57,17 @@ export function getWallet() {
   return wallet
 }
 
+/**
+ * Clears this device's wallet, passkey or fallback alike.
+ *
+ * A passkey wallet is only ever re-derived from the authenticator, so this just drops the
+ * in-memory session and the next `unlockWallet()` re-derives it. A device-fallback wallet has
+ * no authenticator to re-derive from: its key lives only in this browser's storage, so clearing
+ * it here loses that identity for good, with nothing to recover it from.
+ */
 export function signOut() {
   window.sessionStorage.removeItem(SESSION_KEY)
+  window.localStorage.removeItem(DEVICE_KEY)
 }
 
 async function derive(credentialId?: BufferSource): Promise<Hex | null> {

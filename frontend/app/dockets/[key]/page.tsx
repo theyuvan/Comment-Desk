@@ -8,6 +8,7 @@ import { CredentialLabel, DocketPhase, formatDate } from "@/components/app/docke
 import { EnsLink, Eyebrow, Loading, Notice, Panel, Shell, useMember } from "@/components/app/shell"
 import { Button } from "@/components/ui/button"
 import { Label } from "@/components/ui/label"
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select"
 import { Textarea } from "@/components/ui/textarea"
 import { api, request, type ArchiveCheck, type Comment, type Docket, type Member, type Tally } from "@/lib/api"
 import { signAction, textHash } from "@/lib/wallet"
@@ -129,24 +130,33 @@ function Composer({ docket, comments, member, onPosted }: { docket: Docket; comm
             <div className="grid gap-5 sm:grid-cols-2">
               <div className="field">
                 <Label htmlFor="topic">Topic</Label>
-                <select id="topic" value={selected} onChange={(event) => setTopic(event.target.value)}>
-                  {open.map((item) => (
-                    <option key={item}>{item}</option>
-                  ))}
-                </select>
+                <Select value={selected} onValueChange={setTopic}>
+                  <SelectTrigger id="topic" className="w-full">
+                    <SelectValue />
+                  </SelectTrigger>
+                  <SelectContent>
+                    {open.map((item) => (
+                      <SelectItem key={item} value={item}>
+                        {item}
+                      </SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
               </div>
               <div className="field">
                 <Label htmlFor="sentiment">Your position</Label>
-                <select
-                  id="sentiment"
-                  value={sentiment}
-                  onChange={(event) => setSentiment(event.target.value as (typeof SENTIMENTS)[number])}
-                  className="capitalize"
-                >
-                  {SENTIMENTS.map((item) => (
-                    <option key={item}>{item}</option>
-                  ))}
-                </select>
+                <Select value={sentiment} onValueChange={(value) => setSentiment(value as (typeof SENTIMENTS)[number])}>
+                  <SelectTrigger id="sentiment" className="w-full capitalize">
+                    <SelectValue />
+                  </SelectTrigger>
+                  <SelectContent>
+                    {SENTIMENTS.map((item) => (
+                      <SelectItem key={item} value={item} className="capitalize">
+                        {item}
+                      </SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
               </div>
             </div>
             <div className="space-y-2">
@@ -451,17 +461,19 @@ export default function DocketPage() {
             <div className="mb-4 flex flex-wrap items-baseline justify-between gap-3">
               <h2 className="font-display text-2xl tracking-tight">The record</h2>
               {docket.topics.length > 1 && comments.length > 0 && (
-                <select
-                  aria-label="Filter comments by topic"
-                  value={filter}
-                  onChange={(event) => setFilter(event.target.value)}
-                  className="border border-foreground/15 bg-transparent px-2 py-1 text-xs"
-                >
-                  <option value="all">All topics</option>
-                  {docket.topics.map((topic) => (
-                    <option key={topic}>{topic}</option>
-                  ))}
-                </select>
+                <Select value={filter} onValueChange={setFilter}>
+                  <SelectTrigger aria-label="Filter comments by topic" size="sm" className="text-xs">
+                    <SelectValue />
+                  </SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="all">All topics</SelectItem>
+                    {docket.topics.map((topic) => (
+                      <SelectItem key={topic} value={topic}>
+                        {topic}
+                      </SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
               )}
             </div>
             {visible.length === 0 && (

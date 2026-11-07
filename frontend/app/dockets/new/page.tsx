@@ -7,6 +7,7 @@ import { Eyebrow, Loading, Notice, Shell, Steps, useMember } from "@/components/
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
 import { Label } from "@/components/ui/label"
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select"
 import { Textarea } from "@/components/ui/textarea"
 import { request, type CredentialLevel, type Member } from "@/lib/api"
 import { signAction, textHash, typedData } from "@/lib/wallet"
@@ -127,15 +128,15 @@ function DocketForm({ member }: { member: Member }) {
         </div>
         <div className="space-y-2">
           <Label htmlFor="credential">Credential required</Label>
-          <select
-            id="credential"
-            value={credentialLevel}
-            onChange={(event) => setCredentialLevel(event.target.value as CredentialLevel)}
-            className="h-9 w-full rounded-md border border-input bg-transparent px-3 text-sm"
-          >
-            <option value="soft">Soft: Selfie Check</option>
-            <option value="strict">Strict: Proof of Human (Orb)</option>
-          </select>
+          <Select value={credentialLevel} onValueChange={(value) => setCredentialLevel(value as CredentialLevel)}>
+            <SelectTrigger id="credential" className="w-full">
+              <SelectValue />
+            </SelectTrigger>
+            <SelectContent>
+              <SelectItem value="soft">Soft: Selfie Check</SelectItem>
+              <SelectItem value="strict">Strict: Proof of Human (Orb)</SelectItem>
+            </SelectContent>
+          </Select>
         </div>
       </div>
       {naming && (

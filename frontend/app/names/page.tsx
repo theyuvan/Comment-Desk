@@ -3,7 +3,7 @@
 import { Suspense, useEffect, useState, type ReactNode } from "react"
 import Link from "next/link"
 import { useSearchParams } from "next/navigation"
-import { Eyebrow, Loading, Notice, Shell, useHealth } from "@/components/app/shell"
+import { Eyebrow, Loading, Notice, Panel, Shell, useHealth } from "@/components/app/shell"
 import { api, ensUrl, explorer, type NameKind, type NameNode } from "@/lib/api"
 
 const ROOT = "commentdesk.eth"
@@ -112,11 +112,11 @@ function NameView({ node }: { node: NameNode }) {
   return (
     <>
       <Breadcrumb name={node.name} />
-      <div className="mb-2 flex flex-wrap items-baseline gap-x-3 gap-y-1">
+      <div className="mb-3 flex flex-wrap items-center gap-x-3 gap-y-2">
         <h1 className="break-all font-display text-3xl tracking-tight sm:text-4xl">{node.name}</h1>
-        <span className="border border-foreground/30 px-1.5 font-mono text-xs">{KIND_LABEL[node.kind]}</span>
+        <span className="rounded-full border border-foreground/30 px-2.5 py-0.5 font-mono text-xs">{KIND_LABEL[node.kind]}</span>
       </div>
-      <p className="mb-8 font-mono text-xs text-muted-foreground">
+      <p className="mb-10 font-mono text-xs text-muted-foreground">
         <External href={ensUrl(node.name)}>Open in the ENS app</External>
       </p>
 
@@ -126,29 +126,34 @@ function NameView({ node }: { node: NameNode }) {
         </div>
       )}
 
-      <div className="grid gap-10 lg:grid-cols-[1fr_320px]">
-        <div className="min-w-0 space-y-10">
+      <div className="grid gap-12 lg:grid-cols-[1fr_320px] lg:gap-16">
+        <div className="min-w-0 space-y-14">
           <section>
-            <h2 className="mb-2 font-display text-2xl tracking-tight">{purpose.title}</h2>
-            <p className="mb-4 leading-relaxed">{purpose.body}</p>
-            <ul className="space-y-1.5 text-sm text-muted-foreground">
-              {purpose.points.map((point) => (
-                <li key={point}>· {point}</li>
-              ))}
-            </ul>
+            <h2 className="mb-4 font-display text-2xl tracking-tight">{purpose.title}</h2>
+            <Panel className="p-6 sm:p-7">
+              <p className="leading-relaxed">{purpose.body}</p>
+              <ul className="mt-4 space-y-2 border-t border-foreground/10 pt-4 text-sm text-muted-foreground">
+                {purpose.points.map((point) => (
+                  <li key={point} className="flex gap-2">
+                    <span className="text-foreground/40">·</span>
+                    {point}
+                  </li>
+                ))}
+              </ul>
+            </Panel>
           </section>
 
           <section>
-            <h2 className="mb-3 font-display text-2xl tracking-tight">Live ENS records</h2>
+            <h2 className="mb-1 font-display text-2xl tracking-tight">Live ENS records</h2>
             <p className="mb-4 text-sm text-muted-foreground">
               Read just now from Sepolia through the ENS Universal Resolver, exactly as any wallet or app would see them.
             </p>
             {records.length === 0 ? (
               <p className="text-sm text-muted-foreground">No text records on this name.</p>
             ) : (
-              <dl className="divide-y divide-foreground/10 border-y border-foreground/10 text-sm">
+              <dl className="divide-y divide-foreground/10 overflow-hidden rounded-2xl border border-foreground/10 bg-foreground/[0.02] text-sm">
                 {records.map(([key, value]) => (
-                  <div key={key} className="grid gap-1 py-2 sm:grid-cols-[180px_1fr]">
+                  <div key={key} className="grid gap-1 px-6 py-4 sm:grid-cols-[180px_1fr] sm:gap-4">
                     <dt className="text-muted-foreground">
                       {RECORD_LABEL[key] ?? key}
                       <span className="block font-mono text-[10px]">{key}</span>
@@ -164,49 +169,55 @@ function NameView({ node }: { node: NameNode }) {
 
           {groups.map((group) => (
             <section key={group.kind}>
-              <h2 className="mb-3 font-display text-2xl tracking-tight">
+              <h2 className="mb-4 font-display text-2xl tracking-tight">
                 {group.kind === "member" ? "Members" : group.kind === "docket" ? "Dockets" : group.kind === "comment" ? "Comments" : "Agent"}
                 <span className="ml-2 font-mono text-sm text-muted-foreground">{group.items.length}</span>
               </h2>
-              <ul className="divide-y divide-foreground/10 border-y border-foreground/10">
+              <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-3">
                 {group.items.map((child) => (
-                  <li key={child.name} className="py-3 text-sm">
-                    <NameLink name={child.name} />
+                  <Link
+                    key={child.name}
+                    href={`/names?name=${encodeURIComponent(child.name)}`}
+                    className="group rounded-xl border border-foreground/10 bg-foreground/[0.02] px-4 py-3 text-sm transition-colors hover:border-foreground/30 hover:bg-foreground/[0.04]"
+                  >
+                    <span className="block break-all font-medium text-foreground underline-offset-4 group-hover:underline">{child.name}</span>
                     {child.detail && <span className="mt-0.5 block text-xs text-muted-foreground">{child.detail}</span>}
-                  </li>
+                  </Link>
                 ))}
-              </ul>
+              </div>
             </section>
           ))}
         </div>
 
-        <aside>
-          <dl className="space-y-4 font-mono text-xs">
-            <div>
-              <dt className="mb-1 text-muted-foreground">Resolves to</dt>
-              <dd>{node.address ? <External href={explorer.sepoliaAddress(node.address)}>{node.address}</External> : "no address"}</dd>
-            </div>
-            <div>
-              <dt className="mb-1 text-muted-foreground">Resolver contract</dt>
-              <dd>{node.resolver ? <External href={explorer.sepoliaAddress(node.resolver)}>{node.resolver}</External> : "none"}</dd>
-            </div>
-            {node.arkivKey && (
+        <aside className="lg:sticky lg:top-24 lg:self-start">
+          <Panel className="p-6">
+            <dl className="space-y-5 font-mono text-xs">
               <div>
-                <dt className="mb-1 text-muted-foreground">Arkiv entity</dt>
+                <dt className="mb-1 text-muted-foreground">Resolves to</dt>
+                <dd className="break-all">{node.address ? <External href={explorer.sepoliaAddress(node.address)}>{node.address}</External> : "no address"}</dd>
+              </div>
+              <div>
+                <dt className="mb-1 text-muted-foreground">Resolver contract</dt>
+                <dd className="break-all">{node.resolver ? <External href={explorer.sepoliaAddress(node.resolver)}>{node.resolver}</External> : "none"}</dd>
+              </div>
+              {node.arkivKey && (
+                <div>
+                  <dt className="mb-1 text-muted-foreground">Arkiv entity</dt>
+                  <dd className="break-all">
+                    <External href={explorer.arkivEntity(node.arkivKey)}>{node.arkivKey}</External>
+                  </dd>
+                </div>
+              )}
+              <div className="border-t border-foreground/10 pt-5">
+                <dt className="mb-1 text-muted-foreground">Every transaction behind it</dt>
                 <dd>
-                  <External href={explorer.arkivEntity(node.arkivKey)}>{node.arkivKey}</External>
+                  <Link href={`/activity?subject=${encodeURIComponent(node.name)}`} className="underline underline-offset-4 hover:text-foreground">
+                    On-chain activity
+                  </Link>
                 </dd>
               </div>
-            )}
-            <div>
-              <dt className="mb-1 text-muted-foreground">Every transaction behind it</dt>
-              <dd>
-                <Link href={`/activity?subject=${encodeURIComponent(node.name)}`} className="underline underline-offset-4 hover:text-foreground">
-                  On-chain activity
-                </Link>
-              </dd>
-            </div>
-          </dl>
+            </dl>
+          </Panel>
         </aside>
       </div>
     </>

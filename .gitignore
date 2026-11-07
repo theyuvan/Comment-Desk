@@ -35,3 +35,6 @@ Thumbs.db
 
 backend/dist/
 shared/dist/
+
+# not part of the submission repo
+pitch-video/

@@ -5,9 +5,10 @@ import Link from "next/link"
 import { useParams } from "next/navigation"
 import { Countdown } from "@/components/app/countdown"
 import { CredentialLabel, DocketPhase, formatDate } from "@/components/app/docket-phase"
-import { EnsLink, Eyebrow, Loading, Notice, Shell, useMember } from "@/components/app/shell"
+import { EnsLink, Eyebrow, Loading, Notice, Panel, Shell, useMember } from "@/components/app/shell"
 import { Button } from "@/components/ui/button"
 import { Label } from "@/components/ui/label"
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select"
 import { Textarea } from "@/components/ui/textarea"
 import { api, request, type ArchiveCheck, type Comment, type Docket, type Member, type Tally } from "@/lib/api"
 import { signAction, textHash } from "@/lib/wallet"
@@ -44,30 +45,32 @@ function TallyView({ tally }: { tally: Tally }) {
   return (
     <section>
       <h2 className="mb-4 font-display text-2xl tracking-tight">Live tally</h2>
-      <div className="space-y-5">
-        {tally.topics.map((topic) => (
-          <div key={topic.topic}>
-            <div className="mb-1 flex justify-between gap-3 text-sm">
-              <span>{topic.topic}</span>
-              <span className="font-mono text-xs text-muted-foreground">
-                {topic.human} human · {topic.agent} agent
-              </span>
+      <Panel className="p-5 sm:p-6">
+        <div className="space-y-6">
+          {tally.topics.map((topic) => (
+            <div key={topic.topic}>
+              <div className="mb-2 flex justify-between gap-3 text-sm">
+                <span className="font-medium">{topic.topic}</span>
+                <span className="font-mono text-xs text-muted-foreground">
+                  {topic.human} human · {topic.agent} agent
+                </span>
+              </div>
+              <div className="flex h-2 gap-px overflow-hidden rounded-full bg-foreground/5" aria-hidden="true">
+                <div className="bg-foreground" style={{ flexGrow: topic.support }} />
+                <div className="bg-foreground/50" style={{ flexGrow: topic.oppose }} />
+                <div className="bg-foreground/20" style={{ flexGrow: topic.neutral }} />
+              </div>
+              <p className="mt-1.5 font-mono text-xs text-muted-foreground">
+                {topic.support} support · {topic.oppose} oppose · {topic.neutral} neutral
+              </p>
             </div>
-            <div className="flex h-2 gap-px bg-foreground/5" aria-hidden="true">
-              <div className="bg-foreground" style={{ flexGrow: topic.support }} />
-              <div className="bg-foreground/50" style={{ flexGrow: topic.oppose }} />
-              <div className="bg-foreground/20" style={{ flexGrow: topic.neutral }} />
-            </div>
-            <p className="mt-1 font-mono text-xs text-muted-foreground">
-              {topic.support} support · {topic.oppose} oppose · {topic.neutral} neutral
-            </p>
-          </div>
-        ))}
-      </div>
-      <p className="mt-4 text-sm text-muted-foreground">
-        {tally.counted} counted of {tally.stored} stored
-        {ignored > 0 ? `, ${ignored} on record but not counted` : ""}.
-      </p>
+          ))}
+        </div>
+        <p className="mt-6 border-t border-foreground/10 pt-4 text-sm text-muted-foreground">
+          {tally.counted} counted of {tally.stored} stored
+          {ignored > 0 ? `, ${ignored} on record but not counted` : ""}.
+        </p>
+      </Panel>
     </section>
   )
 }
@@ -103,83 +106,94 @@ function Composer({ docket, comments, member, onPosted }: { docket: Docket; comm
           </Notice>
         </div>
       )}
-      <div className="mb-5 grid grid-cols-2 border border-foreground/15 text-sm" role="tablist" aria-label="Who wrote this comment">
-        {(["human", "agent"] as const).map((item) => (
-          <button
-            key={item}
-            type="button"
-            role="tab"
-            aria-selected={path === item}
-            onClick={() => setPath(item)}
-            className={`px-4 py-3 text-left transition-colors ${path === item ? "bg-foreground text-background" : "hover:bg-foreground/5"}`}
-          >
-            <span className="block font-medium">{item === "human" ? "I wrote this" : "My agent drafted this"}</span>
-            <span className={`block text-xs ${path === item ? "text-background/70" : "text-muted-foreground"}`}>
-              {item === "human" ? "World ID check when you post" : "World ID Agent Pass on the exact text"}
-            </span>
-          </button>
-        ))}
-      </div>
+      <Panel className="p-5 sm:p-7">
+        <div className="mb-6 grid grid-cols-2 gap-2 rounded-xl border border-foreground/15 p-1 text-sm" role="tablist" aria-label="Who wrote this comment">
+          {(["human", "agent"] as const).map((item) => (
+            <button
+              key={item}
+              type="button"
+              role="tab"
+              aria-selected={path === item}
+              onClick={() => setPath(item)}
+              className={`rounded-lg px-4 py-3 text-left transition-colors ${path === item ? "bg-foreground text-background" : "hover:bg-foreground/5"}`}
+            >
+              <span className="block font-medium">{item === "human" ? "I wrote this" : "My agent drafted this"}</span>
+              <span className={`block text-xs ${path === item ? "text-background/70" : "text-muted-foreground"}`}>
+                {item === "human" ? "World ID check when you post" : "World ID Agent Pass on the exact text"}
+              </span>
+            </button>
+          ))}
+        </div>
 
-      {path === "human" ? (
-        <div className="space-y-5">
-          <div className="grid gap-5 sm:grid-cols-2">
-            <div className="field">
-              <Label htmlFor="topic">Topic</Label>
-              <select id="topic" value={selected} onChange={(event) => setTopic(event.target.value)}>
-                {open.map((item) => (
-                  <option key={item}>{item}</option>
-                ))}
-              </select>
+        {path === "human" ? (
+          <div className="space-y-6">
+            <div className="grid gap-5 sm:grid-cols-2">
+              <div className="field">
+                <Label htmlFor="topic">Topic</Label>
+                <Select value={selected} onValueChange={setTopic}>
+                  <SelectTrigger id="topic" className="w-full">
+                    <SelectValue />
+                  </SelectTrigger>
+                  <SelectContent>
+                    {open.map((item) => (
+                      <SelectItem key={item} value={item}>
+                        {item}
+                      </SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
+              </div>
+              <div className="field">
+                <Label htmlFor="sentiment">Your position</Label>
+                <Select value={sentiment} onValueChange={(value) => setSentiment(value as (typeof SENTIMENTS)[number])}>
+                  <SelectTrigger id="sentiment" className="w-full capitalize">
+                    <SelectValue />
+                  </SelectTrigger>
+                  <SelectContent>
+                    {SENTIMENTS.map((item) => (
+                      <SelectItem key={item} value={item} className="capitalize">
+                        {item}
+                      </SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
+              </div>
             </div>
-            <div className="field">
-              <Label htmlFor="sentiment">Your position</Label>
-              <select
-                id="sentiment"
-                value={sentiment}
-                onChange={(event) => setSentiment(event.target.value as (typeof SENTIMENTS)[number])}
-                className="capitalize"
-              >
-                {SENTIMENTS.map((item) => (
-                  <option key={item}>{item}</option>
-                ))}
-              </select>
+            <div className="space-y-2">
+              <Label htmlFor="stance">Your comment</Label>
+              <Textarea
+                id="stance"
+                value={text}
+                onChange={(event) => {
+                  setText(event.target.value)
+                  setPosted("")
+                }}
+                rows={5}
+                placeholder="Write it in your own words."
+              />
             </div>
-          </div>
-          <div className="space-y-2">
-            <Label htmlFor="stance">Your comment</Label>
-            <Textarea
-              id="stance"
-              value={text}
-              onChange={(event) => {
-                setText(event.target.value)
-                setPosted("")
+            {posted && <p className="ok">{posted}</p>}
+            {postedName && <CommentReceipt name={postedName} />}
+            <WorldVerifyButton<{ ensName: string }>
+              input={{ purpose: "comment", docketKey: docket.key, topic: selected, text, sentiment }}
+              verifyPath="/api/world/verify/comment"
+              label="Verify with World ID and post"
+              disabled={!text.trim() || naming}
+              onVerified={(comment) => {
+                setPosted(`Posted as ${comment.ensName}. Its name will appear on ENS in a moment.`)
+                setPostedName(comment.ensName)
+                setText("")
+                onPosted()
               }}
-              rows={5}
-              placeholder="Write it in your own words."
             />
           </div>
-          {posted && <p className="ok">{posted}</p>}
-          {postedName && <CommentReceipt name={postedName} />}
-          <WorldVerifyButton<{ ensName: string }>
-            input={{ purpose: "comment", docketKey: docket.key, topic: selected, text, sentiment }}
-            verifyPath="/api/world/verify/comment"
-            label="Verify with World ID and post"
-            disabled={!text.trim() || naming}
-            onVerified={(comment) => {
-              setPosted(`Posted as ${comment.ensName}. Its name will appear on ENS in a moment.`)
-              setPostedName(comment.ensName)
-              setText("")
-              onPosted()
-            }}
-          />
-        </div>
-      ) : (
-        <div className="space-y-8">
-          <AgentInterview docketKey={docket.key} onDraft={() => setDrafted((count) => count + 1)} />
-          <AgentDraftReview docketKey={docket.key} refresh={drafted} />
-        </div>
-      )}
+        ) : (
+          <div className="space-y-8">
+            <AgentInterview docketKey={docket.key} onDraft={() => setDrafted((count) => count + 1)} />
+            <AgentDraftReview docketKey={docket.key} refresh={drafted} />
+          </div>
+        )}
+      </Panel>
     </section>
   )
 }
@@ -211,16 +225,18 @@ function RulingForm({ docket, onClosed }: { docket: Docket; onClosed: () => void
       <p className="mb-4 text-sm text-muted-foreground">
         This concludes the case. The ruling and the full record then move to Swarm as the permanent case file.
       </p>
-      <form onSubmit={submit} className="space-y-4">
-        <Label htmlFor="ruling" className="sr-only">
-          Ruling
-        </Label>
-        <Textarea id="ruling" value={ruling} onChange={(event) => setRuling(event.target.value)} rows={5} required />
-        {error && <Notice tone="error">{error}</Notice>}
-        <Button type="submit" disabled={busy || !ruling.trim()} className="rounded-full">
-          {busy ? "Publishing…" : "Publish and close this docket"}
-        </Button>
-      </form>
+      <Panel className="p-5 sm:p-7">
+        <form onSubmit={submit} className="space-y-4">
+          <Label htmlFor="ruling" className="sr-only">
+            Ruling
+          </Label>
+          <Textarea id="ruling" value={ruling} onChange={(event) => setRuling(event.target.value)} rows={5} required />
+          {error && <Notice tone="error">{error}</Notice>}
+          <Button type="submit" disabled={busy || !ruling.trim()} className="rounded-full">
+            {busy ? "Publishing…" : "Publish and close this docket"}
+          </Button>
+        </form>
+      </Panel>
     </section>
   )
 }
@@ -277,50 +293,59 @@ function CaseRecord({ docket }: { docket: Docket }) {
   return (
     <section>
       <h2 className="mb-4 font-display text-2xl tracking-tight">Conclusion</h2>
-      <blockquote className="border-l-2 border-foreground pl-4 text-lg leading-relaxed">{docket.ruling}</blockquote>
-      <div className="mt-5 text-sm text-muted-foreground">
-        {!docket.swarmRef && <Loading>Moving the full record to Swarm…</Loading>}
-        {docket.swarmRef && (
-          <p className="break-all font-mono text-xs">
-            Permanent case file:{" "}
-            {check ? (
-              <a href={check.url} target="_blank" rel="noreferrer" className="underline underline-offset-4">
-                {docket.swarmRef}
-              </a>
-            ) : (
-              docket.swarmRef
-            )}
-          </p>
-        )}
-        {check && (
-          <p className="mt-2">
-            {check.matches
-              ? `Verified: the file on Swarm matches Arkiv, with ${check.commentsInFile} comments.`
-              : "Warning: the file on Swarm does not match Arkiv."}
-          </p>
-        )}
-        {error && <p className="mt-2 text-destructive">{error}</p>}
-      </div>
+      <Panel className="p-6 sm:p-8">
+        <blockquote className="border-l-2 border-foreground pl-5 text-lg leading-relaxed">{docket.ruling}</blockquote>
+        <div className="mt-6 space-y-2 border-t border-foreground/10 pt-5 text-sm text-muted-foreground">
+          {!docket.swarmRef && <Loading>Moving the full record to Swarm…</Loading>}
+          {docket.swarmRef && (
+            <p className="break-all font-mono text-xs">
+              Permanent case file:{" "}
+              {check ? (
+                <a href={check.url} target="_blank" rel="noreferrer" className="underline underline-offset-4">
+                  {docket.swarmRef}
+                </a>
+              ) : (
+                docket.swarmRef
+              )}
+            </p>
+          )}
+          {check && (
+            <p>
+              {check.matches
+                ? `Verified: the file on Swarm matches Arkiv, with ${check.commentsInFile} comments.`
+                : "Warning: the file on Swarm does not match Arkiv."}
+            </p>
+          )}
+          {error && <p className="text-destructive">{error}</p>}
+        </div>
+      </Panel>
     </section>
   )
 }
 
 function CommentItem({ comment }: { comment: Comment }) {
   return (
-    <li className="py-4">
-      <div className="mb-2 flex flex-wrap items-baseline gap-x-3 gap-y-1 text-xs text-muted-foreground">
-        <EnsLink name={comment.authorEns} className="text-foreground" />
-        {comment.authorType === "agent" && <span className="border border-foreground/30 px-1.5 font-mono">agent drafted · human approved</span>}
-        {comment.proofRef.startsWith("dev:") && <span className="border border-destructive/40 px-1.5 font-mono text-destructive">unverified dev proof</span>}
-        <span className="font-mono">
+    <li className="px-6 py-6">
+      <div className="mb-2.5 flex flex-wrap items-center justify-between gap-x-4 gap-y-1">
+        <EnsLink name={comment.authorEns} className="font-medium text-foreground" />
+        <span className="font-mono text-xs text-muted-foreground">{formatDate(comment.submittedAt)}</span>
+      </div>
+      <div className="mb-3 flex flex-wrap items-center gap-1.5 text-xs text-muted-foreground">
+        <span className="rounded-full border border-foreground/15 px-2 py-0.5 font-mono capitalize">
           {comment.topic} · {comment.sentiment}
-          {comment.ordinal > 1 ? " · not counted" : ""}
         </span>
+        {comment.ordinal > 1 && <span className="rounded-full border border-foreground/15 px-2 py-0.5 font-mono">not counted</span>}
+        {comment.authorType === "agent" && (
+          <span className="rounded-full border border-foreground/30 px-2 py-0.5 font-mono">agent drafted · human approved</span>
+        )}
+        {comment.proofRef.startsWith("dev:") && (
+          <span className="rounded-full border border-destructive/40 px-2 py-0.5 font-mono text-destructive">unverified dev proof</span>
+        )}
       </div>
       <p className="whitespace-pre-wrap leading-relaxed">{comment.stance}</p>
-      <details className="mt-2 font-mono text-xs text-muted-foreground">
-        <summary className="cursor-pointer">{formatDate(comment.submittedAt)} · check this record</summary>
-        <dl className="mt-2 grid gap-1">
+      <details className="mt-3 font-mono text-xs text-muted-foreground">
+        <summary className="cursor-pointer transition-colors hover:text-foreground">check this record</summary>
+        <dl className="mt-3 space-y-2 border-t border-foreground/10 pt-3">
           <div>
             <dt className="inline">ENS </dt>
             <dd className="inline">
@@ -404,8 +429,8 @@ export default function DocketPage() {
         {" · "}
         <CredentialLabel docket={docket} />
       </Eyebrow>
-      <h1 className="mb-3 font-display text-4xl tracking-tight sm:text-5xl">{docket.title}</h1>
-      <nav aria-label="Name chain" className="mb-4 flex flex-wrap items-center gap-x-2 gap-y-1 text-xs text-muted-foreground">
+      <h1 className="mb-4 font-display text-4xl tracking-tight sm:text-5xl">{docket.title}</h1>
+      <nav aria-label="Name chain" className="mb-5 flex flex-wrap items-center gap-x-2 gap-y-1 text-xs text-muted-foreground">
         <EnsLink name={creatorName} />
         <span aria-hidden="true">›</span>
         <EnsLink name={docket.ensName} />
@@ -413,10 +438,10 @@ export default function DocketPage() {
           See its ENS records and every comment name
         </Link>
       </nav>
-      <p className="mb-10 max-w-2xl text-lg leading-relaxed">{docket.question}</p>
+      <p className="mb-12 max-w-2xl text-lg leading-relaxed text-muted-foreground">{docket.question}</p>
 
-      <div className="grid gap-12 lg:grid-cols-[1fr_320px]">
-        <div className="min-w-0 space-y-12">
+      <div className="grid gap-12 lg:grid-cols-[1fr_340px] lg:gap-16">
+        <div className="min-w-0 space-y-14">
           {docket.ruling && <CaseRecord docket={docket} />}
           {docket.phase === "open" && member && <Composer docket={docket} comments={comments} member={member} onPosted={load} />}
           {docket.phase === "open" && member === null && (
@@ -436,23 +461,25 @@ export default function DocketPage() {
             <div className="mb-4 flex flex-wrap items-baseline justify-between gap-3">
               <h2 className="font-display text-2xl tracking-tight">The record</h2>
               {docket.topics.length > 1 && comments.length > 0 && (
-                <select
-                  aria-label="Filter comments by topic"
-                  value={filter}
-                  onChange={(event) => setFilter(event.target.value)}
-                  className="border border-foreground/15 bg-transparent px-2 py-1 text-xs"
-                >
-                  <option value="all">All topics</option>
-                  {docket.topics.map((topic) => (
-                    <option key={topic}>{topic}</option>
-                  ))}
-                </select>
+                <Select value={filter} onValueChange={setFilter}>
+                  <SelectTrigger aria-label="Filter comments by topic" size="sm" className="text-xs">
+                    <SelectValue />
+                  </SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="all">All topics</SelectItem>
+                    {docket.topics.map((topic) => (
+                      <SelectItem key={topic} value={topic}>
+                        {topic}
+                      </SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
               )}
             </div>
             {visible.length === 0 && (
               <p className="text-sm text-muted-foreground">{comments.length === 0 ? "No comments yet." : "No comments on this topic."}</p>
             )}
-            <ul className="divide-y divide-foreground/10 border-y border-foreground/10 empty:hidden">
+            <ul className="divide-y divide-foreground/10 overflow-hidden rounded-2xl border border-foreground/10 empty:hidden">
               {visible.map((comment) => (
                 <CommentItem key={comment.key} comment={comment} />
               ))}
@@ -460,9 +487,9 @@ export default function DocketPage() {
           </section>
         </div>
 
-        <aside className="space-y-6">
+        <aside className="space-y-8">
           {tally && <TallyView tally={tally} />}
-          <Button asChild variant="outline" className="w-full rounded-full">
+          <Button asChild variant="outline" size="lg" className="w-full rounded-full">
             <Link href={`/dockets/${docket.key}/recount`}>Recount this yourself</Link>
           </Button>
           <DocketReceipt name={docket.ensName} />

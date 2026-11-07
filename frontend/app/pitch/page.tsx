@@ -25,6 +25,7 @@ import { BreakIt, CheckLadder, ProofBinding } from "@/components/pitch/world"
 import { Big } from "@/components/pitch/shared"
 import { Globe } from "@/components/pitch/globe"
 import { ThemeToggle } from "@/components/theme-toggle"
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select"
 import { BuiltWith, SponsorMark } from "@/components/visuals/sponsor-marks"
 
 type SponsorId = "arkiv" | "ens" | "world"
@@ -157,20 +158,21 @@ export default function PitchPage() {
 
         <footer className="relative z-10 shrink-0 border-t border-foreground/10">
           <div className="mx-auto flex max-w-[1180px] flex-wrap items-center gap-3 px-4 py-3 sm:gap-4 sm:px-8">
-            <label className="flex items-center gap-2 font-mono text-[10px] uppercase tracking-widest text-foreground/50">
+            <div className="flex items-center gap-2 font-mono text-[10px] uppercase tracking-widest text-foreground/50">
               <span>Pitch for</span>
-              <select
-                value={sponsor}
-                onChange={(event) => choose(event.target.value as SponsorId)}
-                className="border border-foreground/30 bg-background px-2 py-1.5 font-mono text-xs normal-case tracking-normal text-foreground transition-colors hover:border-foreground"
-              >
-                {SPONSORS.map((item) => (
-                  <option key={item.id} value={item.id}>
-                    {item.name}
-                  </option>
-                ))}
-              </select>
-            </label>
+              <Select value={sponsor} onValueChange={(value) => choose(value as SponsorId)}>
+                <SelectTrigger size="sm" className="h-auto border-foreground/30 bg-background px-2 py-1.5 font-mono text-xs normal-case tracking-normal text-foreground hover:border-foreground">
+                  <SelectValue />
+                </SelectTrigger>
+                <SelectContent>
+                  {SPONSORS.map((item) => (
+                    <SelectItem key={item.id} value={item.id} className="font-mono text-xs normal-case tracking-normal">
+                      {item.name}
+                    </SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+            </div>
             <button
               onClick={() => go(index - 1)}
               disabled={index === 0}

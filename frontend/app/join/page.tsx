@@ -3,7 +3,7 @@
 import { useEffect, useState, type FormEvent } from "react"
 import Link from "next/link"
 import { useRouter } from "next/navigation"
-import { EnsLink, Eyebrow, Loading, Notice, Shell, Steps, useHealth, useMember } from "@/components/app/shell"
+import { EnsLink, Eyebrow, Loading, Notice, Panel, Shell, Steps, useHealth, useMember } from "@/components/app/shell"
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
 import { Label } from "@/components/ui/label"
@@ -54,59 +54,61 @@ function JoinFlow({ onJoined, onReturning }: { onJoined: () => void; onReturning
   return (
     <div className="max-w-xl space-y-6">
       <Steps steps={STEPS} active={active} />
-      {active < 2 ? (
-        <form onSubmit={prepare} className="space-y-6">
-          <div className="space-y-2">
-            <Label htmlFor="handle">Choose your name</Label>
-            <Input
-              id="handle"
-              value={handle}
-              onChange={(event) => setHandle(event.target.value.toLowerCase())}
-              placeholder="maya"
-              autoComplete="off"
-              required
-            />
-            <p className="font-mono text-xs text-muted-foreground">
-              {handle || "yourname"}.{rootName}
-            </p>
-          </div>
-          <Notice>
-            Your passkey is your wallet: Face ID, a fingerprint or Windows Hello, with no seed phrase and nothing to
-            fund. Your name stays yours and can never be sold or transferred. Continuing signs the Comment Desk policy:
-            one identity per person, and your comments are public.
-          </Notice>
-          {error && <Notice tone="error">{error}</Notice>}
-          <Button type="submit" disabled={busy || !handle} className="rounded-full">
-            {busy ? "Waiting for your passkey…" : "Create passkey"}
-          </Button>
-        </form>
-      ) : (
-        <div className="space-y-4">
-          <p className="text-sm leading-relaxed text-muted-foreground">
-            Last step. World ID proves <span className="text-foreground">{handle}.{rootName}</span> belongs to one unique
-            human, without revealing who you are. It can take about a minute to mint your name.
-          </p>
-          {returning ? (
+      <Panel className="p-6 sm:p-8">
+        {active < 2 ? (
+          <form onSubmit={prepare} className="space-y-6">
+            <div className="space-y-2">
+              <Label htmlFor="handle">Choose your name</Label>
+              <Input
+                id="handle"
+                value={handle}
+                onChange={(event) => setHandle(event.target.value.toLowerCase())}
+                placeholder="maya"
+                autoComplete="off"
+                required
+              />
+              <p className="font-mono text-xs text-muted-foreground">
+                {handle || "yourname"}.{rootName}
+              </p>
+            </div>
             <Notice>
-              Welcome back. This World ID already holds <span className="font-mono">{returning}</span>, so no second name
-              was made. Sign in below with the passkey you created it with.
+              Your passkey is your wallet: Face ID, a fingerprint or Windows Hello, with no seed phrase and nothing to
+              fund. Your name stays yours and can never be sold or transferred. Continuing signs the Comment Desk policy:
+              one identity per person, and your comments are public.
             </Notice>
-          ) : (
-            <WorldVerifyButton<{ ensName: string; returning: boolean }>
-              input={{ purpose: "join", handle, wallet }}
-              verifyPath="/api/world/verify/join"
-              label="Verify with World ID and join"
-              onVerified={(result) => {
-                if (!result.returning) return onJoined()
-                // One human, one name: the passkey made just now owns nothing, so drop it.
-                signOut()
-                setReturning(result.ensName)
-                onReturning()
-              }}
-            />
-          )}
-        </div>
-      )}
+            {error && <Notice tone="error">{error}</Notice>}
+            <Button type="submit" disabled={busy || !handle} className="rounded-full">
+              {busy ? "Waiting for your passkey…" : "Create passkey"}
+            </Button>
+          </form>
+        ) : (
+          <div className="space-y-4">
+            <p className="text-sm leading-relaxed text-muted-foreground">
+              Last step. World ID proves <span className="text-foreground">{handle}.{rootName}</span> belongs to one unique
+              human, without revealing who you are. It can take about a minute to mint your name.
+            </p>
+            {returning ? (
+              <Notice>
+                Welcome back. This World ID already holds <span className="font-mono">{returning}</span>, so no second name
+                was made. Sign in below with the passkey you created it with.
+              </Notice>
+            ) : (
+              <WorldVerifyButton<{ ensName: string; returning: boolean }>
+                input={{ purpose: "join", handle, wallet }}
+                verifyPath="/api/world/verify/join"
+                label="Verify with World ID and join"
+                onVerified={(result) => {
+                  if (!result.returning) return onJoined()
+                  // One human, one name: the passkey made just now owns nothing, so drop it.
+                  signOut()
+                  setReturning(result.ensName)
+                  onReturning()
+                }}
+              />
+            )}
+          </div>
+        )}
+      </Panel>
     </div>
   )
 }

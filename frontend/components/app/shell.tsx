@@ -86,6 +86,11 @@ export function Notice({ children, tone = "info" }: { children: ReactNode; tone?
   )
 }
 
+/** A quiet card for grouping content, so a page reads as sections instead of one dense wall of text. */
+export function Panel({ children, className = "" }: { children: ReactNode; className?: string }) {
+  return <div className={`rounded-2xl border border-foreground/10 bg-foreground/[0.02] p-6 sm:p-8 ${className}`}>{children}</div>
+}
+
 export function Eyebrow({ children }: { children: ReactNode }) {
   return (
     <div className="mb-4 flex items-center gap-3 font-mono text-xs text-muted-foreground">
